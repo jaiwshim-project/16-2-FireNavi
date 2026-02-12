@@ -12,6 +12,32 @@
     #ffRecommendPanel::-webkit-scrollbar-thumb { background: #93C5FD; border-radius: 3px; }
     #ffRecommendPanel::-webkit-scrollbar-thumb:hover { background: #60A5FA; }
 
+    /* ===== Deck Selector Buttons ===== */
+    .deck-btn {
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 2px solid #334155;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #1E293B, #334155);
+      color: #94A3B8;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .deck-btn:hover {
+      background: linear-gradient(135deg, #1E3A5F, #2563EB);
+      color: #fff;
+      border-color: #3B82F6;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+    }
+    .deck-btn.active {
+      background: linear-gradient(135deg, #1D4ED8, #3B82F6);
+      color: #fff;
+      border-color: #60A5FA;
+      box-shadow: 0 4px 16px rgba(59,130,246,0.4), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+
     /* ===== Simulation Page Specific Styles ===== */
     .sim-layout {
       display: grid;
@@ -380,7 +406,7 @@
         </div>
         <h1 class="page-title">실시간 화재 대피 시뮬레이션</h1>
         <p class="page-desc">
-          크루즈선 데크 평면도 위에 화재를 배치하고, 승객 에이전트들의 대피 과정을 실시간으로 관찰합니다.
+          크루즈선 각 층(5~9층) 데크 평면도를 선택하여 화재를 배치하고, 승객 에이전트들의 대피 과정을 실시간으로 관찰합니다.
           A* 동적 위험 회피 경로탐색과 군중 밀집도 기반 속도 모델이 적용됩니다.
         </p>
       </div>
@@ -391,6 +417,15 @@
       <div class="sim-layout">
         <!-- LEFT: Canvas + Controls -->
         <div class="sim-main">
+          <!-- Deck Selector Buttons -->
+          <div id="deckSelector" style="display:flex; gap:6px; margin-bottom:10px;">
+            <span style="font-size:0.82rem; font-weight:600; color:var(--text-muted); display:flex; align-items:center; margin-right:4px;">층 선택:</span>
+            <button class="deck-btn active" data-deck="5" onclick="selectDeck(5)">5층</button>
+            <button class="deck-btn" data-deck="6" onclick="selectDeck(6)">6층</button>
+            <button class="deck-btn" data-deck="7" onclick="selectDeck(7)">7층</button>
+            <button class="deck-btn" data-deck="8" onclick="selectDeck(8)">8층</button>
+            <button class="deck-btn" data-deck="9" onclick="selectDeck(9)">9층</button>
+          </div>
           <div class="canvas-wrap" id="canvasWrap">
             <canvas id="simCanvas" width="900" height="500"></canvas>
             <div class="canvas-overlay-msg" id="overlayMsg">
@@ -719,6 +754,7 @@
     const ROWS = H / CELL;
 
     // ───── State ─────
+    let currentDeck = 5; // 현재 선택된 층 (5~9층)
     let mode = 'idle'; // idle | placing | evacuating | done
     let simSpeed = 1;
     let passengerCount = 40;
@@ -740,7 +776,7 @@
     let cabins = [];
     let doorways = []; // 객실/구역 출입구
     let restaurants = [];
-    let engineRoom = null;
+    let engineRooms = [];
     let musterStations = [];
     let stairways = [];
     let exits = [];
@@ -754,6 +790,15 @@
     }
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
+
+    // ───── Deck layout descriptions (층별 이름) ─────
+    const deckInfo = {
+      5: { name: '5층 - Passenger Cabins (일반 객실)', label: '5F Passenger Cabins / 일반 객실' },
+      6: { name: '6층 - Deluxe Cabins & Spa (디럭스 객실 & 스파)', label: '6F Deluxe Cabins & Spa / 디럭스 & 스파' },
+      7: { name: '7층 - Restaurant & Lounge (레스토랑 & 라운지)', label: '7F Restaurant & Lounge / 레스토랑 & 라운지' },
+      8: { name: '8층 - Suite & Theater (스위트 & 극장)', label: '8F Suite & Theater / 스위트 & 극장' },
+      9: { name: '9층 - Pool & Sky Deck (풀 & 스카이 데크)', label: '9F Pool & Sky Deck / 풀 & 스카이' }
+    };
 
     // ───── Build Ship Layout (grid-based) ─────
     function buildShipLayout() {
@@ -770,147 +815,126 @@
       cabins = [];
       doorways = [];
       restaurants = [];
+      engineRooms = [];
       musterStations = [];
       stairways = [];
       exits = [];
       fireExtinguishers = [];
 
-      // Ship hull boundary (leave some margin)
-      const shipLeft = 5;
-      const shipRight = 85;
-      const shipTop = 3;
-      const shipBottom = 47;
+      // 층별 레이아웃 빌드
+      switch (currentDeck) {
+        case 5: buildDeck5(); break;
+        case 6: buildDeck6(); break;
+        case 7: buildDeck7(); break;
+        case 8: buildDeck8(); break;
+        case 9: buildDeck9(); break;
+        default: buildDeck5();
+      }
 
-      // ---- Main horizontal corridors ----
-      // Upper corridor (y=10-11, deck 4 area)
+      // 소화기 배치 (공통)
+      placeFireExtinguishers();
+    }
+
+    // ── 공통: 소화기 배치 ──
+    function placeFireExtinguishers() {
+      const fePositions = [];
+      // 복도마다 일정 간격으로 소화기 배치
+      for (const cor of corridors) {
+        if (cor.w >= 10) { // 긴 수평 복도
+          for (let x = cor.x + 4; x < cor.x + cor.w; x += 10) {
+            fePositions.push({x: x, y: cor.y});
+          }
+        }
+        if (cor.h >= 10) { // 긴 수직 복도
+          for (let y = cor.y + 4; y < cor.y + cor.h; y += 10) {
+            fePositions.push({x: cor.x, y: y});
+          }
+        }
+      }
+      // 계단 근처
+      for (const sw of stairways) {
+        fePositions.push({x: sw.x + 1, y: sw.y - 1});
+      }
+      for (const pos of fePositions) {
+        if (pos.y >= 0 && pos.y < ROWS && pos.x >= 0 && pos.x < COLS && isWalkable(pos.y, pos.x)) {
+          fireExtinguishers.push({
+            x: pos.x * CELL + CELL / 2,
+            y: pos.y * CELL + CELL / 2,
+            gx: pos.x, gy: pos.y,
+            available: true
+          });
+        }
+      }
+    }
+
+    // ══════════════════════════════════════════════
+    // 5층 - 일반 객실 (Passenger Cabins)
+    //   양쪽에 객실이 밀집, 중앙 긴 복도, 하단 기관실
+    // ══════════════════════════════════════════════
+    function buildDeck5() {
+      // Main horizontal corridors
       addCorridor(8, 10, 80, 2);
-      // Middle corridor (y=22-23, deck 3)
       addCorridor(8, 22, 80, 2);
-      // Lower corridor (y=34-35, deck 2)
       addCorridor(8, 34, 80, 2);
 
-      // ---- Vertical connectors ----
+      // Vertical connectors
       addCorridor(15, 10, 2, 26);
       addCorridor(45, 10, 2, 26);
       addCorridor(70, 10, 2, 26);
-
-      // Additional short corridors for branching
       addCorridor(25, 10, 2, 14);
       addCorridor(55, 10, 2, 14);
       addCorridor(35, 22, 2, 14);
       addCorridor(60, 22, 2, 14);
 
-      // ---- Cabins along corridors (출입구 포함) ----
-      // Upper deck cabins (above upper corridor y=10-11) → 출입구 y=9
+      // Upper cabins (above corridor y=10)
       for (let x = 10; x < 80; x += 6) {
-        if (!isStairwayZone(x, 6) && !isMusterZone(x, 6)) {
+        if (!isStairwayZone5(x, 6) && !isMusterZone(x, 6))
           addCabin(x, 6, 4, 3, 9);
-        }
       }
-      // Upper deck cabins (below upper corridor y=10-11) → 출입구 y=12
+      // Upper cabins (below corridor y=10)
       for (let x = 10; x < 80; x += 6) {
-        if (!isStairwayZone(x, 13) && !isMusterZone(x, 13)) {
+        if (!isStairwayZone5(x, 13) && !isMusterZone(x, 13))
           addCabin(x, 13, 4, 3, 12);
-        }
       }
-      // Middle deck cabins (above middle corridor y=22-23) → 출입구 y=21
+      // Middle cabins
+      for (let x = 10; x < 42; x += 6) addCabin(x, 18, 4, 3, 21);
       for (let x = 10; x < 42; x += 6) {
-        addCabin(x, 18, 4, 3, 21);
+        if (!isStairwayZone5(x, 25)) addCabin(x, 25, 4, 3, 24);
       }
-      // Middle deck cabins (below middle corridor y=22-23) → 출입구 y=24
-      for (let x = 10; x < 42; x += 6) {
-        if (!isStairwayZone(x, 25)) {
-          addCabin(x, 25, 4, 3, 24);
-        }
-      }
-      // Middle deck cabins right side
-      for (let x = 62; x < 80; x += 6) {
-        addCabin(x, 18, 4, 3, 21);
-      }
-      for (let x = 62; x < 80; x += 6) {
-        addCabin(x, 25, 4, 3, 24);
-      }
+      for (let x = 62; x < 80; x += 6) addCabin(x, 18, 4, 3, 21);
+      for (let x = 62; x < 80; x += 6) addCabin(x, 25, 4, 3, 24);
 
-      // Lower deck cabins (above lower corridor y=34-35) → 출입구 y=33
+      // Lower cabins
       for (let x = 10; x < 80; x += 6) {
-        if (!isStairwayZone(x, 30) && x > 20 && x < 70) {
-          addCabin(x, 30, 4, 3, 33);
-        }
+        if (!isStairwayZone5(x, 30) && x > 20 && x < 70) addCabin(x, 30, 4, 3, 33);
       }
-      // Lower deck cabins (below lower corridor y=34-35) → 출입구 y=36
       for (let x = 10; x < 80; x += 6) {
-        if (!isStairwayZone(x, 37) && x > 20 && x < 70) {
-          addCabin(x, 37, 4, 3, 36);
-        }
+        if (!isStairwayZone5(x, 37) && x > 20 && x < 70) addCabin(x, 37, 4, 3, 36);
       }
 
-      // ---- 소화기 배치 (복도 벽면, 계단 근처, 주요 교차점) ----
-      const fePositions = [
-        // 상부 복도 소화기
-        {x:12, y:10}, {x:22, y:10}, {x:32, y:10}, {x:42, y:10},
-        {x:52, y:10}, {x:62, y:10}, {x:75, y:10},
-        // 중부 복도 소화기
-        {x:12, y:22}, {x:22, y:22}, {x:32, y:22}, {x:42, y:22},
-        {x:52, y:22}, {x:62, y:22}, {x:75, y:22},
-        // 하부 복도 소화기
-        {x:25, y:34}, {x:35, y:34}, {x:50, y:34}, {x:65, y:34},
-        // 수직 복도 소화기
-        {x:15, y:16}, {x:15, y:28}, {x:45, y:16}, {x:45, y:28},
-        {x:70, y:16}, {x:70, y:28},
-        // 계단 근처
-        {x:18, y:12}, {x:48, y:12}, {x:73, y:12},
-        {x:38, y:24}, {x:63, y:24},
-        // 레스토랑 입구
-        {x:44, y:22}, {x:59, y:22},
-        // 기관실 입구
-        {x:30, y:40}, {x:55, y:40},
-      ];
-      for (const pos of fePositions) {
-        if (pos.y < ROWS && pos.x < COLS && isWalkable(pos.y, pos.x)) {
-          fireExtinguishers.push({
-            x: pos.x * CELL + CELL / 2,
-            y: pos.y * CELL + CELL / 2,
-            gx: pos.x, gy: pos.y,
-            available: true // 사용 가능 상태
-          });
-        }
-      }
-
-      // ---- Restaurant (large area, middle deck center) ----
+      // Restaurant (중간 데크 중앙)
       addRestaurant(44, 17, 16, 12);
-
-      // ---- Engine Room (bottom area) ----
+      // Engine Room
       addEngineRoom(20, 41, 50, 6);
-
-      // ---- Muster Stations (green zones at sides) ----
+      // Muster Stations
       addMusterStation(6, 5, 6, 8);
       addMusterStation(78, 5, 8, 8);
-
-      // ---- Stairways ----
+      // Stairways
       addStairway(15, 12, 3, 3);
       addStairway(45, 12, 3, 3);
       addStairway(70, 12, 3, 3);
       addStairway(35, 24, 3, 3);
       addStairway(60, 24, 3, 3);
-
-      // ---- Exits (green openings at edges) ----
-      addExit(6, 10, 2, 2);
-      addExit(6, 22, 2, 2);
-      addExit(85, 10, 2, 2);
-      addExit(85, 22, 2, 2);
-      addExit(6, 34, 2, 2);
-      addExit(85, 34, 2, 2);
-
-      // Connect exits to corridors
-      addCorridor(6, 10, 2, 2);
-      addCorridor(6, 22, 2, 2);
-      addCorridor(85, 10, 2, 2);
-      addCorridor(85, 22, 2, 2);
-      addCorridor(6, 34, 2, 2);
-      addCorridor(85, 34, 2, 2);
+      // Exits
+      addExit(6, 10, 2, 2); addCorridor(6, 10, 2, 2);
+      addExit(6, 22, 2, 2); addCorridor(6, 22, 2, 2);
+      addExit(85, 10, 2, 2); addCorridor(85, 10, 2, 2);
+      addExit(85, 22, 2, 2); addCorridor(85, 22, 2, 2);
+      addExit(6, 34, 2, 2); addCorridor(6, 34, 2, 2);
+      addExit(85, 34, 2, 2); addCorridor(85, 34, 2, 2);
     }
 
-    function isStairwayZone(x, y) {
+    function isStairwayZone5(x, y) {
       const sz = [[15,12],[45,12],[70,12],[35,24],[60,24]];
       for (const s of sz) {
         if (x >= s[0]-1 && x <= s[0]+3 && y >= s[1]-1 && y <= s[1]+3) return true;
@@ -918,9 +942,264 @@
       return false;
     }
 
+    // ══════════════════════════════════════════════
+    // 6층 - 디럭스 객실 & 스파 (Deluxe Cabins & Spa)
+    //   더 넓은 객실(5칸), 중앙에 스파/사우나, 좌측에 피트니스
+    // ══════════════════════════════════════════════
+    function buildDeck6() {
+      // Main corridor (상부)
+      addCorridor(8, 12, 80, 2);
+      // Middle corridor
+      addCorridor(8, 26, 80, 2);
+      // Vertical connectors
+      addCorridor(20, 12, 2, 16);
+      addCorridor(50, 12, 2, 16);
+      addCorridor(75, 12, 2, 16);
+      addCorridor(35, 12, 2, 16);
+
+      // Deluxe cabins (위 복도 위쪽, 넓은 5칸 객실)
+      for (let x = 10; x < 80; x += 7) {
+        if (x < 18 || x > 22) // 계단 제외
+          addCabin(x, 6, 5, 5, 11);
+      }
+      // Deluxe cabins (위 복도 아래쪽)
+      for (let x = 10; x < 34; x += 7) addCabin(x, 15, 5, 4, 14);
+      for (let x = 56; x < 80; x += 7) addCabin(x, 15, 5, 4, 14);
+
+      // Spa & Wellness Center (중앙 큰 공간)
+      addRestaurant(34, 15, 20, 10); // 스파 (레스토랑 렌더링 재활용)
+
+      // 아래 복도 주변 객실
+      for (let x = 10; x < 80; x += 7) {
+        if (x < 33 || x > 55) // 스파 공간 제외
+          addCabin(x, 29, 5, 4, 28);
+      }
+      // 하단 객실 열
+      addCorridor(8, 38, 80, 2);
+      addCorridor(20, 28, 2, 12);
+      addCorridor(50, 28, 2, 12);
+      addCorridor(75, 28, 2, 12);
+      for (let x = 10; x < 80; x += 7) {
+        if (x > 15 && x < 72) addCabin(x, 34, 5, 3, 33);
+      }
+      for (let x = 10; x < 80; x += 7) {
+        if (x > 15 && x < 72) addCabin(x, 41, 5, 3, 40);
+      }
+
+      // Fitness Center (좌측 하단)
+      addEngineRoom(6, 34, 12, 10); // 피트니스 (엔진룸 렌더링 재활용)
+
+      // Stairways
+      addStairway(18, 13, 3, 3);
+      addStairway(50, 13, 3, 3);
+      addStairway(75, 13, 3, 3);
+      addStairway(35, 29, 3, 3);
+      addStairway(62, 29, 3, 3);
+      // Muster Station
+      addMusterStation(6, 6, 5, 6);
+      addMusterStation(80, 6, 6, 6);
+      // Exits
+      addExit(6, 12, 2, 2); addCorridor(6, 12, 2, 2);
+      addExit(85, 12, 2, 2); addCorridor(85, 12, 2, 2);
+      addExit(6, 26, 2, 2); addCorridor(6, 26, 2, 2);
+      addExit(85, 26, 2, 2); addCorridor(85, 26, 2, 2);
+      addExit(85, 38, 2, 2); addCorridor(85, 38, 2, 2);
+      addExit(6, 38, 2, 2); addCorridor(6, 38, 2, 2);
+    }
+
+    // ══════════════════════════════════════════════
+    // 7층 - 레스토랑 & 라운지 (Restaurant & Lounge)
+    //   대형 레스토랑 2개, 바/라운지, 객실 적음
+    // ══════════════════════════════════════════════
+    function buildDeck7() {
+      // Main corridor
+      addCorridor(8, 14, 80, 2);
+      addCorridor(8, 34, 80, 2);
+      // Vertical connectors
+      addCorridor(15, 14, 2, 22);
+      addCorridor(42, 14, 2, 22);
+      addCorridor(70, 14, 2, 22);
+      addCorridor(55, 14, 2, 22);
+
+      // 대형 레스토랑 (좌측)
+      addRestaurant(8, 4, 32, 9);
+      // 대형 레스토랑 (우측)
+      addRestaurant(52, 4, 30, 9);
+
+      // Bar & Lounge (중앙 상단)
+      addRestaurant(42, 4, 8, 9);
+
+      // 중간 구역 객실
+      for (let x = 10; x < 40; x += 7) addCabin(x, 17, 5, 4, 16);
+      for (let x = 45; x < 80; x += 7) addCabin(x, 17, 5, 4, 16);
+
+      // 하단 영역: 뷔페 레스토랑
+      addRestaurant(20, 22, 24, 10);
+
+      // 카페 (우측)
+      addRestaurant(56, 22, 18, 10);
+
+      // 하단 객실들
+      for (let x = 10; x < 20; x += 6) addCabin(x, 22, 4, 4, 21);
+      for (let x = 76; x < 86; x += 6) addCabin(x, 22, 4, 4, 21);
+      for (let x = 10; x < 80; x += 6) {
+        if (x > 17 && x < 68) addCabin(x, 37, 4, 3, 36);
+      }
+      for (let x = 10; x < 80; x += 6) {
+        if (x > 17 && x < 68) addCabin(x, 41, 4, 3, 40);
+      }
+      addCorridor(8, 40, 80, 1);
+
+      // Engine Room (하단 양쪽에 주방)
+      addEngineRoom(8, 44, 25, 4);
+      addEngineRoom(60, 44, 25, 4);
+
+      // Stairways
+      addStairway(15, 16, 3, 3);
+      addStairway(42, 16, 3, 3);
+      addStairway(70, 16, 3, 3);
+      addStairway(28, 35, 3, 3);
+      addStairway(60, 35, 3, 3);
+      // Muster
+      addMusterStation(6, 10, 4, 4);
+      addMusterStation(82, 10, 4, 4);
+      // Exits
+      addExit(6, 14, 2, 2); addCorridor(6, 14, 2, 2);
+      addExit(85, 14, 2, 2); addCorridor(85, 14, 2, 2);
+      addExit(6, 34, 2, 2); addCorridor(6, 34, 2, 2);
+      addExit(85, 34, 2, 2); addCorridor(85, 34, 2, 2);
+    }
+
+    // ══════════════════════════════════════════════
+    // 8층 - 스위트 & 극장 (Suite & Theater)
+    //   VIP 대형 스위트 객실, 중앙 극장/공연장
+    // ══════════════════════════════════════════════
+    function buildDeck8() {
+      // Main corridors
+      addCorridor(8, 10, 80, 2);
+      addCorridor(8, 28, 80, 2);
+      // Vertical connectors
+      addCorridor(18, 10, 2, 20);
+      addCorridor(40, 10, 2, 20);
+      addCorridor(65, 10, 2, 20);
+      addCorridor(80, 10, 2, 20);
+
+      // VIP Suite (좌측, 매우 넓은 객실 8x5)
+      for (let x = 10; x < 38; x += 10) addCabin(x, 4, 8, 5, 9);
+      // VIP Suite (우측)
+      for (let x = 44; x < 80; x += 10) addCabin(x, 4, 8, 5, 9);
+
+      // Theater (중앙 대형 공간)
+      addRestaurant(22, 13, 24, 14);
+
+      // 소규모 VIP 라운지 (좌측)
+      addRestaurant(8, 13, 12, 8);
+      // 카지노 (우측)
+      addRestaurant(56, 13, 22, 8);
+
+      // 하단 스위트
+      for (let x = 8; x < 20; x += 8) addCabin(x, 22, 6, 5, 21);
+      for (let x = 48; x < 80; x += 8) addCabin(x, 22, 6, 5, 21);
+
+      // 최하단 일반 객실
+      addCorridor(8, 38, 80, 2);
+      addCorridor(25, 28, 2, 12);
+      addCorridor(55, 28, 2, 12);
+      for (let x = 10; x < 80; x += 7) {
+        if (x > 20 && x < 75) addCabin(x, 31, 5, 4, 30);
+      }
+      for (let x = 10; x < 80; x += 7) {
+        if (x > 20 && x < 75) addCabin(x, 41, 5, 4, 40);
+      }
+
+      // Engine area
+      addEngineRoom(8, 43, 18, 4);
+      addEngineRoom(68, 43, 18, 4);
+
+      // Stairways
+      addStairway(18, 11, 3, 3);
+      addStairway(40, 11, 3, 3);
+      addStairway(65, 11, 3, 3);
+      addStairway(25, 29, 3, 3);
+      addStairway(55, 29, 3, 3);
+      // Muster
+      addMusterStation(6, 4, 5, 6);
+      addMusterStation(82, 4, 5, 6);
+      // Exits
+      addExit(6, 10, 2, 2); addCorridor(6, 10, 2, 2);
+      addExit(85, 10, 2, 2); addCorridor(85, 10, 2, 2);
+      addExit(6, 28, 2, 2); addCorridor(6, 28, 2, 2);
+      addExit(85, 28, 2, 2); addCorridor(85, 28, 2, 2);
+      addExit(6, 38, 2, 2); addCorridor(6, 38, 2, 2);
+      addExit(85, 38, 2, 2); addCorridor(85, 38, 2, 2);
+    }
+
+    // ══════════════════════════════════════════════
+    // 9층 - 풀 & 스카이 데크 (Pool & Sky Deck)
+    //   대형 수영장 2개, 선데크, 소수 프리미엄 객실
+    // ══════════════════════════════════════════════
+    function buildDeck9() {
+      // Main corridor
+      addCorridor(8, 16, 80, 2);
+      addCorridor(8, 34, 80, 2);
+      // Vertical
+      addCorridor(15, 16, 2, 20);
+      addCorridor(45, 16, 2, 20);
+      addCorridor(75, 16, 2, 20);
+      addCorridor(30, 16, 2, 20);
+      addCorridor(60, 16, 2, 20);
+
+      // 대형 수영장 (좌측 상단)
+      addRestaurant(8, 4, 28, 11);
+      // 대형 수영장 (우측 상단)
+      addRestaurant(50, 4, 28, 11);
+
+      // 풀사이드 바 (중앙)
+      addRestaurant(38, 4, 10, 11);
+
+      // 중간 프리미엄 객실 (수 적음, 매우 넓음)
+      for (let x = 10; x < 30; x += 12) addCabin(x, 19, 10, 5, 18);
+      for (let x = 48; x < 78; x += 12) addCabin(x, 19, 10, 5, 18);
+      // 중앙 선데크/라운지
+      addRestaurant(32, 19, 14, 10);
+
+      // 하단 영역: 선베드 공간 (오픈 데크)
+      addCorridor(8, 30, 80, 3); // 넓은 오픈 데크 복도
+      // 소수 객실
+      for (let x = 10; x < 40; x += 10) addCabin(x, 37, 8, 4, 36);
+      for (let x = 50; x < 80; x += 10) addCabin(x, 37, 8, 4, 36);
+      // 하단 바/레스토랑
+      addRestaurant(20, 42, 18, 5);
+      addRestaurant(52, 42, 18, 5);
+
+      // Stairways
+      addStairway(15, 17, 3, 3);
+      addStairway(45, 17, 3, 3);
+      addStairway(75, 17, 3, 3);
+      addStairway(30, 35, 3, 3);
+      addStairway(60, 35, 3, 3);
+      // Muster
+      addMusterStation(6, 12, 4, 4);
+      addMusterStation(82, 12, 4, 4);
+      // Exits
+      addExit(6, 16, 2, 2); addCorridor(6, 16, 2, 2);
+      addExit(85, 16, 2, 2); addCorridor(85, 16, 2, 2);
+      addExit(6, 34, 2, 2); addCorridor(6, 34, 2, 2);
+      addExit(85, 34, 2, 2); addCorridor(85, 34, 2, 2);
+    }
+
+    // 동적 계단/집결지 충돌 감지 (배치된 stairways/musterStations 기준)
+    function isStairwayZone(x, y) {
+      for (const sw of stairways) {
+        if (x >= sw.x - 1 && x <= sw.x + sw.w && y >= sw.y - 1 && y <= sw.y + sw.h) return true;
+      }
+      return false;
+    }
+
     function isMusterZone(x, y) {
-      if (x >= 5 && x <= 13 && y >= 4 && y <= 14) return true;
-      if (x >= 77 && x <= 87 && y >= 4 && y <= 14) return true;
+      for (const ms of musterStations) {
+        if (x >= ms.x - 1 && x <= ms.x + ms.w + 1 && y >= ms.y - 1 && y <= ms.y + ms.h + 1) return true;
+      }
       return false;
     }
 
@@ -964,7 +1243,7 @@
     }
 
     function addEngineRoom(gx, gy, gw, gh) {
-      engineRoom = { x: gx, y: gy, w: gw, h: gh };
+      engineRooms.push({ x: gx, y: gy, w: gw, h: gh });
       fillGrid(gx, gy, gw, gh, 4);
     }
 
@@ -1588,9 +1867,16 @@
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Engine room
-      if (engineRoom) {
-        const er = engineRoom;
+      // Engine rooms / Utility areas
+      const erLabels = {
+        5: 'ENGINE ROOM / 기관실',
+        6: 'FITNESS CENTER / 피트니스',
+        7: 'KITCHEN / 주방',
+        8: 'UTILITY / 장비실',
+        9: 'MAINTENANCE / 관리실'
+      };
+      const erLabel = erLabels[currentDeck] || 'ENGINE ROOM';
+      for (const er of engineRooms) {
         ctx.fillStyle = 'rgba(128, 90, 213, 0.12)';
         ctx.fillRect(er.x * CELL, er.y * CELL, er.w * CELL, er.h * CELL);
         ctx.strokeStyle = 'rgba(128, 90, 213, 0.4)';
@@ -1598,7 +1884,7 @@
         ctx.strokeRect(er.x * CELL, er.y * CELL, er.w * CELL, er.h * CELL);
         ctx.fillStyle = 'rgba(128, 90, 213, 0.6)';
         ctx.font = '10px sans-serif';
-        ctx.fillText('ENGINE ROOM / 기관실', er.x * CELL + 6, er.y * CELL + 14);
+        ctx.fillText(erLabel, er.x * CELL + 6, er.y * CELL + 14);
       }
 
       // Cabins (객실)
@@ -1650,8 +1936,17 @@
         }
       }
 
-      // Restaurant
-      for (const rest of restaurants) {
+      // Restaurant / 공용 공간
+      const facilityNames = {
+        5: ['RESTAURANT / 레스토랑'],
+        6: ['SPA & WELLNESS / 스파', 'FITNESS / 피트니스'],
+        7: ['MAIN DINING / 메인 다이닝', 'BUFFET / 뷔페', 'BAR & LOUNGE / 바', 'CAFE / 카페'],
+        8: ['THEATER / 극장', 'VIP LOUNGE / VIP 라운지', 'CASINO / 카지노'],
+        9: ['POOL / 수영장', 'POOL / 수영장', 'POOLSIDE BAR / 풀바', 'SUN DECK LOUNGE / 선데크', 'SKY BAR / 스카이바', 'SKY BAR / 스카이바']
+      };
+      const names = facilityNames[currentDeck] || ['FACILITY'];
+      for (let ri = 0; ri < restaurants.length; ri++) {
+        const rest = restaurants[ri];
         ctx.fillStyle = 'rgba(237, 137, 54, 0.08)';
         ctx.fillRect(rest.x * CELL, rest.y * CELL, rest.w * CELL, rest.h * CELL);
         ctx.strokeStyle = 'rgba(237, 137, 54, 0.4)';
@@ -1659,7 +1954,7 @@
         ctx.strokeRect(rest.x * CELL, rest.y * CELL, rest.w * CELL, rest.h * CELL);
         ctx.fillStyle = 'rgba(237, 137, 54, 0.6)';
         ctx.font = '10px sans-serif';
-        ctx.fillText('RESTAURANT / 레스토랑', rest.x * CELL + 6, rest.y * CELL + 14);
+        ctx.fillText(names[ri] || names[0], rest.x * CELL + 6, rest.y * CELL + 14);
       }
 
       // Corridors
@@ -1722,12 +2017,13 @@
         ctx.fillText('EXIT', ex.x * CELL + 1, ex.y * CELL + 12);
       }
 
-      // Deck labels
-      ctx.fillStyle = 'rgba(160, 174, 192, 0.4)';
-      ctx.font = '11px sans-serif';
-      ctx.fillText('Deck 4 - Pool / Muster', 90, 68);
-      ctx.fillText('Deck 3 - Restaurant / Lounge', 90, 213);
-      ctx.fillText('Deck 2 - Passenger Cabins', 90, 348);
+      // Deck label (현재 선택된 층)
+      ctx.fillStyle = 'rgba(160, 174, 192, 0.5)';
+      ctx.font = 'bold 13px sans-serif';
+      const info = deckInfo[currentDeck];
+      if (info) {
+        ctx.fillText(info.label, 90, 28);
+      }
     }
 
     function drawFires() {
@@ -2110,12 +2406,11 @@
           ffAssigned * 80;             // 이미 투입된 소방관 (감점)
 
         // 위치 설명
-        let location = '';
+        let location = currentDeck + '층';
         const gx = Math.floor(f.x / CELL), gy = Math.floor(f.y / CELL);
-        if (gy <= 15) location = '상부 갑판 (Deck 4)';
-        else if (gy <= 27) location = '중부 갑판 (Deck 3)';
-        else if (gy <= 38) location = '하부 갑판 (Deck 2)';
-        else location = '기관실 구역';
+        if (gy <= 15) location += ' 상부';
+        else if (gy <= 30) location += ' 중부';
+        else location += ' 하부';
 
         if (gx < 30) location += ' 좌현';
         else if (gx > 60) location += ' 우현';
@@ -2465,6 +2760,19 @@
       buildShipLayout();
       spawnPassengers();
     }
+
+    // ───── Deck Selection ─────
+    function switchDeck(deckNum) {
+      currentDeck = deckNum;
+      // 버튼 활성화 상태 업데이트
+      document.querySelectorAll('.deck-btn').forEach(btn => {
+        btn.classList.toggle('active', parseInt(btn.dataset.deck) === deckNum);
+      });
+      // 시뮬레이션 초기화
+      resetSimulation();
+    }
+    // 전역 접근용
+    window.selectDeck = switchDeck;
 
     // ───── Init ─────
     buildShipLayout();
