@@ -1743,11 +1743,21 @@
         ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
         const labelY = f.y - drawRadius - 8;
-        // 배지 배경
+        // 배지 배경 (roundRect 호환)
         const labelW = ctx.measureText(label).width + 10;
+        const bx = f.x - labelW / 2, by = labelY - 9, bw = labelW, bh = 14, br = 4;
         ctx.fillStyle = 'rgba(220, 38, 38, 0.9)';
         ctx.beginPath();
-        ctx.roundRect(f.x - labelW / 2, labelY - 9, labelW, 14, 4);
+        ctx.moveTo(bx + br, by);
+        ctx.lineTo(bx + bw - br, by);
+        ctx.quadraticCurveTo(bx + bw, by, bx + bw, by + br);
+        ctx.lineTo(bx + bw, by + bh - br);
+        ctx.quadraticCurveTo(bx + bw, by + bh, bx + bw - br, by + bh);
+        ctx.lineTo(bx + br, by + bh);
+        ctx.quadraticCurveTo(bx, by + bh, bx, by + bh - br);
+        ctx.lineTo(bx, by + br);
+        ctx.quadraticCurveTo(bx, by, bx + br, by);
+        ctx.closePath();
         ctx.fill();
         // 배지 텍스트
         ctx.fillStyle = '#FFFFFF';
