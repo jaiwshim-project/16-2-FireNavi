@@ -555,6 +555,15 @@
         </div>
       </div>
 
+      <!-- AI Firefighter Recommendation Panel -->
+      <div id="ffRecommendPanel" style="display:none; margin-top:var(--space-lg); background:linear-gradient(135deg, rgba(219,234,254,0.6), rgba(239,246,255,0.8)); border:2px solid #3B82F6; border-radius:var(--radius-lg); padding:var(--space-lg); box-shadow:var(--shadow-lg);">
+        <h3 style="margin:0 0 12px 0; font-size:1rem; color:#1D4ED8; display:flex; align-items:center; gap:8px;">
+          <span style="font-size:1.2rem;">🤖</span> AI 소방관 투입 추천 분석
+          <span style="font-size:0.75rem; font-weight:400; color:#64748B; margin-left:auto;">FireNavi AI Engine</span>
+        </h3>
+        <div id="ffRecommendContent" style="font-size:0.85rem; color:var(--text-primary); line-height:1.7;"></div>
+      </div>
+
       <!-- Algorithm Info -->
       <div class="content-section" style="margin-top: var(--space-xl);">
         <h2>알고리즘 상세 (Algorithm Details)</h2>
@@ -1702,7 +1711,10 @@
     }
 
     function drawFires() {
-      for (const f of fires) {
+      for (let i = 0; i < fires.length; i++) {
+        const f = fires[i];
+        const fireNum = i + 1;
+
         // Smoke (outer)
         const smokeGrad = ctx.createRadialGradient(f.x, f.y, f.radius, f.x, f.y, f.smokeRadius);
         smokeGrad.addColorStop(0, 'rgba(100, 100, 100, 0.25)');
@@ -1726,11 +1738,20 @@
         ctx.arc(f.x, f.y, drawRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Fire icon
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 10px sans-serif';
+        // Fire 번호 라벨 (상단 배지)
+        const label = 'FIRE #' + fireNum;
+        ctx.font = 'bold 9px sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('FIRE', f.x, f.y + 3);
+        const labelY = f.y - drawRadius - 8;
+        // 배지 배경
+        const labelW = ctx.measureText(label).width + 10;
+        ctx.fillStyle = 'rgba(220, 38, 38, 0.9)';
+        ctx.beginPath();
+        ctx.roundRect(f.x - labelW / 2, labelY - 9, labelW, 14, 4);
+        ctx.fill();
+        // 배지 텍스트
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillText(label, f.x, labelY);
         ctx.textAlign = 'start';
       }
     }
@@ -1986,6 +2007,180 @@
       }
     }
 
+    // ───── AI Firefighter Recommendation ─────
+    function analyzeFirePriority() {
+      if (fires.length === 0) return [];
+
+      const analysis = fires.map((f, idx) => {
+        const fireNum = idx + 1;
+
+        // 1) 화재 반경 내 승객 수 (위험 승객)
+        let passengersInFire = 0;
+        let passengersInSmoke = 0;
+        let passengersNearby = 0;  // 150px 이내
+        let blockedPassengers = 0; // 경로가 이 화재에 의해 차단된 승객
+
+        for (const p of passengers) {
+          if (p.evacuated) continue;
+          const dx = p.x - f.x, dy = p.y - f.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < f.radius) passengersInFire++;
+          else if (dist < f.smokeRadius) passengersInSmoke++;
+          if (dist < 150) passengersNearby++;
+          // 경로 차단 분석: 승객의 목표 출구 방향에 화재가 있는지
+          if (p.targetExit) {
+            const ecx = p.targetExit.x * CELL + p.targetExit.w * CELL / 2;
+            const ecy = p.targetExit.y * CELL + p.targetExit.h * CELL / 2;
+            // 승객→출구 직선 경로와 화재의 거리
+            const pathDx = ecx - p.x, pathDy = ecy - p.y;
+            const pathLen = Math.sqrt(pathDx * pathDx + pathDy * pathDy);
+            if (pathLen > 0) {
+              const t = Math.max(0, Math.min(1, ((f.x - p.x) * pathDx + (f.y - p.y) * pathDy) / (pathLen * pathLen)));
+              const closestX = p.x + t * pathDx;
+              const closestY = p.y + t * pathDy;
+              const distToPath = Math.sqrt((f.x - closestX) ** 2 + (f.y - closestY) ** 2);
+              if (distToPath < f.radius * 1.5) blockedPassengers++;
+            }
+          }
+          // stuck 상태인 승객이 이 화재 근처인지
+          if (p.stuckTimer > 2 && dist < 200) blockedPassengers++;
+        }
+
+        // 2) 출구 차단 분석
+        let exitBlocked = 0;
+        for (const ex of exits) {
+          const ecx = ex.x * CELL + ex.w * CELL / 2;
+          const ecy = ex.y * CELL + ex.h * CELL / 2;
+          const dist = Math.sqrt((f.x - ecx) ** 2 + (f.y - ecy) ** 2);
+          if (dist < f.smokeRadius * 1.2) exitBlocked++;
+        }
+
+        // 3) 화재 크기
+        const fireSize = f.radius;
+
+        // 4) 이미 소방관이 투입되었는지
+        const ffAssigned = firefighters.filter(ff => ff.targetFire === f && ff.phase !== 'done').length;
+
+        // 5) 우선순위 점수 계산
+        // 높을수록 먼저 투입해야 함
+        const score =
+          passengersInFire * 100 +     // 화재 안 승객 (최우선)
+          blockedPassengers * 30 +     // 경로 차단 승객
+          passengersInSmoke * 15 +     // 연기 영향 승객
+          passengersNearby * 5 +       // 근접 승객
+          exitBlocked * 40 +           // 출구 차단
+          fireSize * 2 -               // 화재 크기
+          ffAssigned * 80;             // 이미 투입된 소방관 (감점)
+
+        // 위치 설명
+        let location = '';
+        const gx = Math.floor(f.x / CELL), gy = Math.floor(f.y / CELL);
+        if (gy <= 15) location = '상부 갑판 (Deck 4)';
+        else if (gy <= 27) location = '중부 갑판 (Deck 3)';
+        else if (gy <= 38) location = '하부 갑판 (Deck 2)';
+        else location = '기관실 구역';
+
+        if (gx < 30) location += ' 좌현';
+        else if (gx > 60) location += ' 우현';
+        else location += ' 중앙';
+
+        return {
+          fireNum, fire: f, score, location,
+          passengersInFire, passengersInSmoke, passengersNearby,
+          blockedPassengers, exitBlocked, fireSize: Math.round(fireSize),
+          ffAssigned
+        };
+      });
+
+      // 점수 높은 순으로 정렬
+      analysis.sort((a, b) => b.score - a.score);
+      return analysis;
+    }
+
+    function showFirefighterRecommendation() {
+      const panel = document.getElementById('ffRecommendPanel');
+      const content = document.getElementById('ffRecommendContent');
+
+      if (fires.length === 0) {
+        panel.style.display = 'none';
+        return;
+      }
+
+      const analysis = analyzeFirePriority();
+      const totalRemaining = passengers.filter(p => !p.evacuated).length;
+      const totalStuck = passengers.filter(p => !p.evacuated && p.stuckTimer > 2).length;
+
+      let html = '';
+
+      // 전체 상황 요약
+      html += '<div style="background:rgba(255,255,255,0.8); border-radius:8px; padding:12px; margin-bottom:12px; border:1px solid #E2E8F0;">';
+      html += '<div style="font-weight:700; color:#1E293B; margin-bottom:6px;">📊 현재 상황 분석</div>';
+      html += '<div style="display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:8px; text-align:center;">';
+      html += '<div style="background:#FEE2E2; padding:8px; border-radius:6px;"><div style="font-size:1.1rem; font-weight:700; color:#DC2626;">' + fires.length + '</div><div style="font-size:0.72rem; color:#991B1B;">활성 화재</div></div>';
+      html += '<div style="background:#DBEAFE; padding:8px; border-radius:6px;"><div style="font-size:1.1rem; font-weight:700; color:#2563EB;">' + totalRemaining + '</div><div style="font-size:0.72rem; color:#1E40AF;">잔류 승객</div></div>';
+      html += '<div style="background:#FEF3C7; padding:8px; border-radius:6px;"><div style="font-size:1.1rem; font-weight:700; color:#D97706;">' + totalStuck + '</div><div style="font-size:0.72rem; color:#92400E;">이동불가</div></div>';
+      html += '<div style="background:#D1FAE5; padding:8px; border-radius:6px;"><div style="font-size:1.1rem; font-weight:700; color:#059669;">' + firefighters.filter(ff => ff.phase !== 'done').length + '</div><div style="font-size:0.72rem; color:#065F46;">활동 소방관</div></div>';
+      html += '</div></div>';
+
+      // 각 화재별 분석 카드
+      html += '<div style="display:flex; flex-direction:column; gap:10px;">';
+
+      analysis.forEach((a, idx) => {
+        const isTop = idx === 0;
+        const borderColor = isTop ? '#DC2626' : '#94A3B8';
+        const bgColor = isTop ? 'rgba(254,226,226,0.4)' : 'rgba(255,255,255,0.7)';
+        const badge = isTop
+          ? '<span style="background:#DC2626; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:10px; margin-left:8px;">🎯 최우선 투입 추천</span>'
+          : (idx === 1 ? '<span style="background:#D97706; color:#fff; font-size:0.7rem; font-weight:700; padding:2px 8px; border-radius:10px; margin-left:8px;">2순위</span>' : '');
+
+        html += '<div style="background:' + bgColor + '; border:1.5px solid ' + borderColor + '; border-radius:10px; padding:12px;">';
+        html += '<div style="display:flex; align-items:center; margin-bottom:8px;">';
+        html += '<span style="font-weight:700; font-size:0.95rem; color:#DC2626;">🔥 Fire #' + a.fireNum + '</span>';
+        html += '<span style="font-size:0.78rem; color:#64748B; margin-left:10px;">' + a.location + '</span>';
+        html += badge;
+        if (a.ffAssigned > 0) {
+          html += '<span style="background:#DBEAFE; color:#1D4ED8; font-size:0.7rem; font-weight:600; padding:2px 8px; border-radius:10px; margin-left:6px;">🚒 ' + a.ffAssigned + '명 투입됨</span>';
+        }
+        html += '</div>';
+
+        // 위험도 지표
+        html += '<div style="display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-bottom:8px;">';
+        html += '<div style="text-align:center; padding:4px; background:rgba(220,38,38,0.1); border-radius:4px;"><div style="font-weight:700; color:#DC2626; font-size:0.9rem;">' + a.passengersInFire + '</div><div style="font-size:0.65rem; color:#7F1D1D;">화재 내</div></div>';
+        html += '<div style="text-align:center; padding:4px; background:rgba(100,100,100,0.1); border-radius:4px;"><div style="font-weight:700; color:#475569; font-size:0.9rem;">' + a.passengersInSmoke + '</div><div style="font-size:0.65rem; color:#334155;">연기 내</div></div>';
+        html += '<div style="text-align:center; padding:4px; background:rgba(217,119,6,0.1); border-radius:4px;"><div style="font-weight:700; color:#D97706; font-size:0.9rem;">' + a.blockedPassengers + '</div><div style="font-size:0.65rem; color:#92400E;">경로차단</div></div>';
+        html += '<div style="text-align:center; padding:4px; background:rgba(37,99,235,0.1); border-radius:4px;"><div style="font-weight:700; color:#2563EB; font-size:0.9rem;">' + a.exitBlocked + '</div><div style="font-size:0.65rem; color:#1E40AF;">출구위협</div></div>';
+        html += '<div style="text-align:center; padding:4px; background:rgba(229,62,62,0.08); border-radius:4px;"><div style="font-weight:700; color:#E53E3E; font-size:0.9rem;">' + a.fireSize + 'px</div><div style="font-size:0.65rem; color:#7F1D1D;">반경</div></div>';
+        html += '</div>';
+
+        // AI 판단 이유
+        let reason = '';
+        if (isTop) {
+          const reasons = [];
+          if (a.passengersInFire > 0) reasons.push('화재 내 ' + a.passengersInFire + '명의 승객이 즉각 위험');
+          if (a.blockedPassengers > 3) reasons.push('다수(' + a.blockedPassengers + '명)의 대피 경로를 차단');
+          if (a.exitBlocked > 0) reasons.push(a.exitBlocked + '개 비상구 위협');
+          if (a.fireSize > 60) reasons.push('화재 반경 ' + a.fireSize + 'px로 급속 확산 중');
+          if (a.passengersNearby > 10) reasons.push('주변 150px 내 ' + a.passengersNearby + '명 밀집');
+          if (reasons.length === 0) reasons.push('종합 위험도 점수가 가장 높음');
+          reason = '<div style="font-size:0.78rem; color:#1D4ED8; background:rgba(37,99,235,0.08); padding:6px 10px; border-radius:6px; border-left:3px solid #2563EB;">';
+          reason += '<b>AI 판단:</b> ' + reasons.join(', ') + '. 이 화재를 먼저 진압하면 승객 대피 효율이 크게 향상됩니다.';
+          reason += '</div>';
+        }
+        html += reason;
+        html += '</div>';
+      });
+
+      html += '</div>';
+
+      // 투입 안내
+      html += '<div style="margin-top:12px; padding:10px; background:rgba(37,99,235,0.08); border-radius:8px; font-size:0.8rem; color:#1D4ED8; text-align:center;">';
+      html += '💡 캔버스에서 진압할 화재 근처를 클릭하면 소방관 4명이 투입됩니다. 여러 화재에 반복 투입 가능합니다.';
+      html += '</div>';
+
+      panel.style.display = 'block';
+      content.innerHTML = html;
+    }
+
     // ───── UI Updates ─────
     function updateStats(atRisk) {
       const activePassengers = passengers.filter(p => !p.evacuated);
@@ -2103,6 +2298,8 @@
           btnFirefighter.classList.remove('active-mode');
           canvas.style.cursor = 'default';
           overlay.classList.add('hidden');
+          // 투입 후 추천 갱신
+          showFirefighterRecommendation();
         } else {
           overlay.innerHTML = '<b style="color:#2563EB;">화재 근처를 클릭하세요!</b><br>' +
             '<span style="font-size:0.85rem;">화재 지점 주변을 클릭하면 소방관 4명이 투입됩니다</span>';
@@ -2168,6 +2365,8 @@
         overlay.innerHTML = '<b style="color:#2563EB;font-size:1.1rem;">🚒 소방관 투입 모드</b><br>' +
           '<span style="font-size:0.85rem;">진압할 화재 근처를 클릭하세요</span><br>' +
           '<span style="font-size:0.8rem;color:#64748B;">소방관 4명이 가장 가까운 출구에서 진입합니다</span>';
+        // AI 추천 분석 표시
+        showFirefighterRecommendation();
       } else {
         btnFirefighter.classList.remove('active-mode');
         canvas.style.cursor = 'default';
@@ -2211,6 +2410,7 @@
       btnFirefighter.disabled = true;
       btnFirefighter.classList.remove('active-mode');
       ffBadge.style.display = 'none';
+      document.getElementById('ffRecommendPanel').style.display = 'none';
       btnFire.classList.remove('active-mode');
       canvas.style.cursor = 'default';
       overlay.classList.remove('hidden');
