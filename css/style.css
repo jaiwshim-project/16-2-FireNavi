@@ -212,18 +212,18 @@ img {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 0px;
   list-style: none;
 }
 
 .nav-links a {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
+  gap: 4px;
+  padding: 8px 10px;
   border-radius: var(--radius-sm);
   color: #475569;
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 500;
   transition: all 0.2s ease;
   white-space: nowrap;
