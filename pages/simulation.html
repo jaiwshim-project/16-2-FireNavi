@@ -1,0 +1,1916 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FireNavi - 화이어내비 | 실시간 대피 시뮬레이션</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    /* ===== Simulation Page Specific Styles ===== */
+    .sim-layout {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: var(--space-lg);
+      margin: var(--space-lg) 0;
+    }
+
+    @media (max-width: 1024px) {
+      .sim-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .sim-main {
+      min-width: 0;
+    }
+
+    .canvas-wrap {
+      position: relative;
+      background: #0a1018;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+    }
+
+    .canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      cursor: crosshair;
+    }
+
+    .canvas-overlay-msg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--text-muted);
+      font-size: 1rem;
+      pointer-events: none;
+      text-align: center;
+      line-height: 1.8;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+
+    .canvas-overlay-msg.hidden {
+      opacity: 0;
+    }
+
+    .controls-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--space-sm);
+      padding: var(--space-md);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-top: var(--space-md);
+    }
+
+    .ctrl-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ctrl-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .ctrl-val {
+      font-size: 0.8rem;
+      color: var(--fire-orange);
+      font-weight: 600;
+      min-width: 30px;
+      text-align: center;
+    }
+
+    .ctrl-range {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border);
+      outline: none;
+    }
+
+    .ctrl-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--fire-orange);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+    }
+
+    .ctrl-range::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--fire-orange);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+    }
+
+    .ctrl-sep {
+      width: 1px;
+      height: 28px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+
+    .sim-btn {
+      font-family: var(--font-main);
+    }
+
+    .sim-btn.active-mode {
+      box-shadow: 0 0 0 2px var(--fire-orange);
+    }
+
+    /* --- Stats Panel --- */
+    .stats-panel {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-md);
+    }
+
+    .stats-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+    }
+
+    .stats-card h3 {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-md);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .stat-row .label {
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .stat-row .value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+    }
+
+    .stat-row .value.green { color: var(--safe); }
+    .stat-row .value.blue { color: var(--info); }
+    .stat-row .value.red { color: var(--danger); }
+    .stat-row .value.orange { color: var(--fire-orange); }
+    .stat-row .value.white { color: var(--text-primary); }
+
+    .evac-progress-wrap {
+      margin-top: var(--space-md);
+    }
+
+    .evac-progress-wrap .prog-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .evac-progress {
+      height: 10px;
+      background: var(--bg-primary);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .evac-progress-fill {
+      height: 100%;
+      background: var(--gradient-safe);
+      border-radius: 5px;
+      transition: width 0.3s;
+      width: 0%;
+    }
+
+    .legend-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: var(--space-sm);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-rect {
+      width: 14px;
+      height: 10px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    /* --- Algorithm Section --- */
+    .algo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: var(--space-lg);
+      margin-top: var(--space-lg);
+    }
+
+    .algo-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+    }
+
+    .algo-card h4 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: var(--space-sm);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .algo-card p {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    .algo-card .formula-inline {
+      display: block;
+      margin: var(--space-sm) 0;
+      padding: var(--space-sm) var(--space-md);
+      background: var(--bg-primary);
+      border-radius: var(--radius-sm);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--fire-orange);
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- NAVIGATION -->
+    <nav class="top-nav">
+      <div class="nav-inner">
+        <a href="../index.html" class="nav-brand">
+          <span class="fire-icon">&#x1F525;</span>
+          <span>FireNavi</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="../index.html">Dashboard</a></li>
+          <li><a href="a-technical-formulation.html">A. 기술 수식화</a></li>
+          <li><a href="b-industrial-architecture.html">B. 산업 아키텍처</a></li>
+          <li><a href="c-shipyard-proposal.html">C. 조선소 제안</a></li>
+          <li><a href="d-insurance-risk-model.html">D. 보험 리스크</a></li>
+          <li><a href="simulation.html" class="active">시뮬레이션</a></li>
+          <li><a href="risk-map.html">위험지도</a></li>
+          <li><a href="route-optimizer.html">경로최적화</a></li>
+        </ul>
+        <button class="nav-mobile-toggle">&#9776;</button>
+      </div>
+    </nav>
+
+    <!-- PAGE HEADER -->
+    <div class="container">
+      <div class="page-header">
+        <div class="breadcrumb">
+          <a href="../index.html">Dashboard</a>
+          <span>/</span>
+          <span>실시간 대피 시뮬레이션</span>
+        </div>
+        <h1 class="page-title">실시간 화재 대피 시뮬레이션</h1>
+        <p class="page-desc">
+          크루즈선 데크 평면도 위에 화재를 배치하고, 승객 에이전트들의 대피 과정을 실시간으로 관찰합니다.
+          A* 동적 위험 회피 경로탐색과 군중 밀집도 기반 속도 모델이 적용됩니다.
+        </p>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="container main-content">
+      <div class="sim-layout">
+        <!-- LEFT: Canvas + Controls -->
+        <div class="sim-main">
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="simCanvas" width="900" height="500"></canvas>
+            <div class="canvas-overlay-msg" id="overlayMsg">
+              화재 위치를 클릭하여 설정하세요<br>
+              <span style="font-size:0.8rem;">"화재 배치 모드" 버튼을 먼저 누르세요</span>
+            </div>
+          </div>
+
+          <!-- Controls -->
+          <div class="controls-bar">
+            <button class="sim-btn sim-btn--primary" id="btnFire">화재 배치 모드</button>
+            <span id="fireCountBadge" style="display:none;background:#FEE2E2;color:#DC2626;font-size:0.8rem;font-weight:700;padding:4px 10px;border-radius:12px;border:1px solid #FECACA;">0개 배치</span>
+            <button class="sim-btn sim-btn--safe" id="btnEvac" disabled>대피 시작</button>
+            <button class="sim-btn" id="btnReset">초기화</button>
+
+            <div class="ctrl-sep"></div>
+
+            <div class="ctrl-group">
+              <span class="ctrl-label">속도</span>
+              <input type="range" class="ctrl-range" id="speedSlider" min="0.5" max="3" step="0.25" value="1">
+              <span class="ctrl-val" id="speedVal">1x</span>
+            </div>
+
+            <div class="ctrl-sep"></div>
+
+            <div class="ctrl-group">
+              <span class="ctrl-label">승객 수</span>
+              <input type="number" class="ctrl-input" id="countInput" min="1" step="1" value="40" style="width:70px; height:28px; background:var(--bg-secondary); border:1px solid var(--border); border-radius:6px; color:var(--fire-orange); font-weight:600; font-size:0.85rem; text-align:center; outline:none;">
+              <span class="ctrl-val" id="countVal">명</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Stats Panel -->
+        <div class="stats-panel">
+          <!-- Real-time Stats -->
+          <div class="stats-card">
+            <h3>실시간 현황</h3>
+            <div class="stat-row">
+              <span class="label">대피 완료 인원</span>
+              <span class="value green" id="statEvacuated">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">남은 인원</span>
+              <span class="value blue" id="statRemaining">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">위험 구역 인원</span>
+              <span class="value red" id="statAtRisk">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">경과 시간</span>
+              <span class="value orange" id="statTime">0.0s</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">평균 대피 시간</span>
+              <span class="value white" id="statAvgTime">--</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">위험 구역 수</span>
+              <span class="value red" id="statDangerZones">0</span>
+            </div>
+
+            <div class="evac-progress-wrap">
+              <div class="prog-label">
+                <span>대피 진행률</span>
+                <span id="progPercent">0%</span>
+              </div>
+              <div class="evac-progress">
+                <div class="evac-progress-fill" id="progBar"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="stats-card">
+            <h3>범례 (Legend)</h3>
+            <div class="legend-grid">
+              <div class="legend-item">
+                <span class="legend-rect" style="background:#556677;"></span> 복도 (Corridor)
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:#2a3a4e;border:1px solid #4a5a6e;"></span> 객실 (Cabin)
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:rgba(237,137,54,0.2);border:1px solid #ED8936;"></span> 레스토랑
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:rgba(128,90,213,0.2);border:1px solid #805AD5;"></span> 기관실
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:rgba(56,161,105,0.25);border:1px solid #38A169;"></span> 집결지
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:#38A169;"></span> 출구 (Exit)
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#4A90D9;"></span> 일반 승객
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#ECC94B;"></span> 저속 승객
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#E53E3E;box-shadow:0 0 6px rgba(229,62,62,0.8);"></span> 화재
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:rgba(120,120,120,0.5);"></span> 연기
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:#3182CE;border:1px solid #63B3ED;"></span> 계단
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#38A169;"></span> 대피 완료
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:rgba(236,201,75,0.6);border:1px solid #ECC94B;width:8px;height:8px;"></span> 출입구
+              </div>
+              <div class="legend-item">
+                <span class="legend-rect" style="background:#DC2626;width:8px;height:8px;"></span> 소화기
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#F97316;"></span> 소화 중
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:transparent;border:2px solid #EF4444;width:8px;height:8px;border-radius:50%;"></span> 경로탐색 중
+              </div>
+            </div>
+          </div>
+
+          <!-- Simulation Status -->
+          <div class="stats-card">
+            <h3>시뮬레이션 상태</h3>
+            <div class="stat-row">
+              <span class="label">모드</span>
+              <span class="value white" id="statMode" style="font-size:0.85rem;">대기 중</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">화재 발생 수</span>
+              <span class="value orange" id="statFireCount">0</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">화재 확산 반경</span>
+              <span class="value red" id="statFireRadius">0px</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">소화기 잔여</span>
+              <span class="value orange" id="statFECount">-</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">소화 활동 중</span>
+              <span class="value orange" id="statFEActive">0명</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">경로탐색 중</span>
+              <span class="value red" id="statStuck">0명</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Algorithm Info -->
+      <div class="content-section" style="margin-top: var(--space-xl);">
+        <h2>알고리즘 상세 (Algorithm Details)</h2>
+        <p>
+          본 시뮬레이션은 크루즈선 화재 발생 시 승객 대피 과정을 모사합니다.
+          실시간 위험 요소를 반영한 경로탐색 알고리즘과 물리 기반 화재/연기 확산 모델이 적용되어 있습니다.
+        </p>
+
+        <div class="algo-grid">
+          <!-- A* Pathfinding -->
+          <div class="algo-card">
+            <h4><span style="color:var(--info);">&#x1F9ED;</span> A* 동적 위험 회피 경로탐색</h4>
+            <p>
+              각 승객 에이전트는 A* 알고리즘 변형을 사용하여 가장 가까운 안전한 출구까지의 최적 경로를 탐색합니다.
+              화재 및 연기 구역에 높은 비용(cost penalty)을 부여하여 위험 지역을 동적으로 회피합니다.
+            </p>
+            <span class="formula-inline">
+              f(n) = g(n) + h(n) + R(n)<br>
+              R(n) = w_fire * D_fire(n) + w_smoke * D_smoke(n)
+            </span>
+            <p>
+              여기서 R(n)은 위험 가중치 함수이며, 화재 거리와 연기 밀도에 따라 노드별 추가 비용을 산정합니다.
+              경로는 화재 확산에 따라 실시간으로 재계산됩니다.
+            </p>
+          </div>
+
+          <!-- Fire Spread -->
+          <div class="algo-card">
+            <h4><span style="color:var(--danger);">&#x1F525;</span> 화재 확산 모델 (Fire Spread)</h4>
+            <p>
+              화재는 발화 지점으로부터 방사형으로 확산됩니다.
+              확산 속도는 시간에 따라 비선형적으로 증가하며, 초기에는 느리다가 점차 가속됩니다.
+            </p>
+            <span class="formula-inline">
+              r_fire(t) = r_0 + alpha * t^1.3<br>
+              r_smoke(t) = r_fire(t) * 2.5 + beta * t
+            </span>
+            <p>
+              연기는 화재 반경의 약 2.5배 범위까지 확산되며, 반투명 영역으로 표현됩니다.
+              연기 구역 내 승객은 속도가 50% 감소합니다.
+            </p>
+          </div>
+
+          <!-- Crowd Density -->
+          <div class="algo-card">
+            <h4><span style="color:var(--warning);">&#x1F465;</span> 군중 밀집도 속도 모델</h4>
+            <p>
+              승객 이동 속도는 주변 밀집도에 의해 영향을 받습니다.
+              좁은 복도나 출구 근처에서 병목이 발생하면 속도가 감소합니다.
+            </p>
+            <span class="formula-inline">
+              v_eff = v_base * (1 - rho / rho_max)^gamma<br>
+              gamma = 1.4 (밀집도 감도 계수)
+            </span>
+            <p>
+              개인별 건강 상태(v_base)는 정규 분포를 따르며,
+              노약자/장애인은 낮은 기본 속도(yellow 표시)를 가집니다.
+              출구 근처 집중 시 자동 분산 로직이 적용됩니다.
+            </p>
+          </div>
+
+          <!-- 출입구 안내 -->
+          <div class="content-section" style="margin-top:16px;">
+            <h4><span style="color:var(--fire-yellow);">&#x1F6AA;</span> 객실 출입구 및 이동 경로</h4>
+            <p>
+              각 객실에는 복도 방향으로 1개의 출입구(노란색 표시)가 있습니다.
+              승객은 반드시 출입구를 통해 복도로 나온 후 출구를 향해 이동합니다.
+              레스토랑은 4방향(상/하/좌/우) 출입구가 있어 다양한 경로로 대피 가능합니다.
+            </p>
+            <span class="formula-inline">
+              이동 경로: 객실 내부 → 출입구(doorway) → 복도(corridor) → 계단/출구(exit)
+            </span>
+          </div>
+
+          <!-- 소화기 시스템 -->
+          <div class="content-section" style="margin-top:16px;">
+            <h4><span style="color:var(--danger);">&#x1F9EF;</span> 소화기 사용 시스템 (Fire Extinguisher)</h4>
+            <p>
+              복도 벽면, 계단 근처, 주요 교차점에 소화기(빨간 십자 표시)가 배치되어 있습니다.
+              화재로 모든 대피 경로가 차단된 승객은 다음 절차를 실행합니다:
+            </p>
+            <ol style="margin-left:20px;line-height:2;">
+              <li>가장 가까운 <b>소화기</b> 위치로 이동 (주황색 표시)</li>
+              <li>소화기를 들고 <b>화재 근처</b>로 접근</li>
+              <li><b>3초간 진압</b> 활동 수행 (깜박임 표시)</li>
+              <li>화재 반경 60% 감소 → 통로 확보 후 대피 재개</li>
+            </ol>
+            <span class="formula-inline">
+              진압 후: r_fire → r_fire * 0.4, r_smoke → r_smoke * 0.5<br>
+              소화기 1개당 1회 사용 (사용 후 회색 표시)
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer-brand">FireNavi &#x1F525; 화이어내비</div>
+      <p>&copy; 2026</p>
+    </footer>
+  </div>
+
+  <script src="../js/main.js"></script>
+
+  <script>
+  /* ================================================================
+     FireNavi - Cruise Ship Fire Evacuation Simulation
+     Canvas-based interactive simulation with A* pathfinding,
+     fire/smoke spread, and multi-agent evacuation.
+     ================================================================ */
+  (function () {
+    'use strict';
+
+    // ───── DOM refs ─────
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrap = document.getElementById('canvasWrap');
+    const overlay = document.getElementById('overlayMsg');
+
+    const btnFire = document.getElementById('btnFire');
+    const btnEvac = document.getElementById('btnEvac');
+    const btnReset = document.getElementById('btnReset');
+    const fireCountBadge = document.getElementById('fireCountBadge');
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    const countInput = document.getElementById('countInput');
+    const countVal = document.getElementById('countVal');
+
+    const statEvacuated = document.getElementById('statEvacuated');
+    const statRemaining = document.getElementById('statRemaining');
+    const statAtRisk = document.getElementById('statAtRisk');
+    const statTime = document.getElementById('statTime');
+    const statAvgTime = document.getElementById('statAvgTime');
+    const statDangerZones = document.getElementById('statDangerZones');
+    const progPercent = document.getElementById('progPercent');
+    const progBar = document.getElementById('progBar');
+    const statMode = document.getElementById('statMode');
+    const statFireCount = document.getElementById('statFireCount');
+    const statFireRadius = document.getElementById('statFireRadius');
+
+    // ───── Constants ─────
+    const W = 900, H = 500;
+    const CELL = 10; // grid cell size
+    const COLS = W / CELL;
+    const ROWS = H / CELL;
+
+    // ───── State ─────
+    let mode = 'idle'; // idle | placing | evacuating | done
+    let simSpeed = 1;
+    let passengerCount = 40;
+    let fires = [];
+    let fireExtinguishers = [];
+    let passengers = [];
+    let elapsedTime = 0;
+    let evacuatedCount = 0;
+    let evacuationTimes = [];
+    let animId = null;
+    let lastFrameTime = 0;
+    let grid = []; // 0=wall, 1=walkable, 3=restaurant, 4=engine, 5=muster, 6=stairway, 7=exit, 8=cabin interior
+
+    // Ship layout structures
+    let corridors = [];
+    let cabins = [];
+    let doorways = []; // 객실/구역 출입구
+    let restaurants = [];
+    let engineRoom = null;
+    let musterStations = [];
+    let stairways = [];
+    let exits = [];
+
+    // ───── Responsive Canvas ─────
+    function resizeCanvas() {
+      const wrapW = wrap.clientWidth;
+      const scale = wrapW / W;
+      canvas.style.width = wrapW + 'px';
+      canvas.style.height = (H * scale) + 'px';
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // ───── Build Ship Layout (grid-based) ─────
+    function buildShipLayout() {
+      // Initialize grid as walls
+      grid = [];
+      for (let r = 0; r < ROWS; r++) {
+        grid[r] = [];
+        for (let c = 0; c < COLS; c++) {
+          grid[r][c] = 0; // wall by default
+        }
+      }
+
+      corridors = [];
+      cabins = [];
+      doorways = [];
+      restaurants = [];
+      musterStations = [];
+      stairways = [];
+      exits = [];
+      fireExtinguishers = [];
+
+      // Ship hull boundary (leave some margin)
+      const shipLeft = 5;
+      const shipRight = 85;
+      const shipTop = 3;
+      const shipBottom = 47;
+
+      // ---- Main horizontal corridors ----
+      // Upper corridor (y=10-11, deck 4 area)
+      addCorridor(8, 10, 80, 2);
+      // Middle corridor (y=22-23, deck 3)
+      addCorridor(8, 22, 80, 2);
+      // Lower corridor (y=34-35, deck 2)
+      addCorridor(8, 34, 80, 2);
+
+      // ---- Vertical connectors ----
+      addCorridor(15, 10, 2, 26);
+      addCorridor(45, 10, 2, 26);
+      addCorridor(70, 10, 2, 26);
+
+      // Additional short corridors for branching
+      addCorridor(25, 10, 2, 14);
+      addCorridor(55, 10, 2, 14);
+      addCorridor(35, 22, 2, 14);
+      addCorridor(60, 22, 2, 14);
+
+      // ---- Cabins along corridors (출입구 포함) ----
+      // Upper deck cabins (above upper corridor y=10-11) → 출입구 y=9
+      for (let x = 10; x < 80; x += 6) {
+        if (!isStairwayZone(x, 6) && !isMusterZone(x, 6)) {
+          addCabin(x, 6, 4, 3, 9);
+        }
+      }
+      // Upper deck cabins (below upper corridor y=10-11) → 출입구 y=12
+      for (let x = 10; x < 80; x += 6) {
+        if (!isStairwayZone(x, 13) && !isMusterZone(x, 13)) {
+          addCabin(x, 13, 4, 3, 12);
+        }
+      }
+      // Middle deck cabins (above middle corridor y=22-23) → 출입구 y=21
+      for (let x = 10; x < 42; x += 6) {
+        addCabin(x, 18, 4, 3, 21);
+      }
+      // Middle deck cabins (below middle corridor y=22-23) → 출입구 y=24
+      for (let x = 10; x < 42; x += 6) {
+        if (!isStairwayZone(x, 25)) {
+          addCabin(x, 25, 4, 3, 24);
+        }
+      }
+      // Middle deck cabins right side
+      for (let x = 62; x < 80; x += 6) {
+        addCabin(x, 18, 4, 3, 21);
+      }
+      for (let x = 62; x < 80; x += 6) {
+        addCabin(x, 25, 4, 3, 24);
+      }
+
+      // Lower deck cabins (above lower corridor y=34-35) → 출입구 y=33
+      for (let x = 10; x < 80; x += 6) {
+        if (!isStairwayZone(x, 30) && x > 20 && x < 70) {
+          addCabin(x, 30, 4, 3, 33);
+        }
+      }
+      // Lower deck cabins (below lower corridor y=34-35) → 출입구 y=36
+      for (let x = 10; x < 80; x += 6) {
+        if (!isStairwayZone(x, 37) && x > 20 && x < 70) {
+          addCabin(x, 37, 4, 3, 36);
+        }
+      }
+
+      // ---- 소화기 배치 (복도 벽면, 계단 근처, 주요 교차점) ----
+      const fePositions = [
+        // 상부 복도 소화기
+        {x:12, y:10}, {x:22, y:10}, {x:32, y:10}, {x:42, y:10},
+        {x:52, y:10}, {x:62, y:10}, {x:75, y:10},
+        // 중부 복도 소화기
+        {x:12, y:22}, {x:22, y:22}, {x:32, y:22}, {x:42, y:22},
+        {x:52, y:22}, {x:62, y:22}, {x:75, y:22},
+        // 하부 복도 소화기
+        {x:25, y:34}, {x:35, y:34}, {x:50, y:34}, {x:65, y:34},
+        // 수직 복도 소화기
+        {x:15, y:16}, {x:15, y:28}, {x:45, y:16}, {x:45, y:28},
+        {x:70, y:16}, {x:70, y:28},
+        // 계단 근처
+        {x:18, y:12}, {x:48, y:12}, {x:73, y:12},
+        {x:38, y:24}, {x:63, y:24},
+        // 레스토랑 입구
+        {x:44, y:22}, {x:59, y:22},
+        // 기관실 입구
+        {x:30, y:40}, {x:55, y:40},
+      ];
+      for (const pos of fePositions) {
+        if (pos.y < ROWS && pos.x < COLS && isWalkable(pos.y, pos.x)) {
+          fireExtinguishers.push({
+            x: pos.x * CELL + CELL / 2,
+            y: pos.y * CELL + CELL / 2,
+            gx: pos.x, gy: pos.y,
+            available: true // 사용 가능 상태
+          });
+        }
+      }
+
+      // ---- Restaurant (large area, middle deck center) ----
+      addRestaurant(44, 17, 16, 12);
+
+      // ---- Engine Room (bottom area) ----
+      addEngineRoom(20, 41, 50, 6);
+
+      // ---- Muster Stations (green zones at sides) ----
+      addMusterStation(6, 5, 6, 8);
+      addMusterStation(78, 5, 8, 8);
+
+      // ---- Stairways ----
+      addStairway(15, 12, 3, 3);
+      addStairway(45, 12, 3, 3);
+      addStairway(70, 12, 3, 3);
+      addStairway(35, 24, 3, 3);
+      addStairway(60, 24, 3, 3);
+
+      // ---- Exits (green openings at edges) ----
+      addExit(6, 10, 2, 2);
+      addExit(6, 22, 2, 2);
+      addExit(85, 10, 2, 2);
+      addExit(85, 22, 2, 2);
+      addExit(6, 34, 2, 2);
+      addExit(85, 34, 2, 2);
+
+      // Connect exits to corridors
+      addCorridor(6, 10, 2, 2);
+      addCorridor(6, 22, 2, 2);
+      addCorridor(85, 10, 2, 2);
+      addCorridor(85, 22, 2, 2);
+      addCorridor(6, 34, 2, 2);
+      addCorridor(85, 34, 2, 2);
+    }
+
+    function isStairwayZone(x, y) {
+      const sz = [[15,12],[45,12],[70,12],[35,24],[60,24]];
+      for (const s of sz) {
+        if (x >= s[0]-1 && x <= s[0]+3 && y >= s[1]-1 && y <= s[1]+3) return true;
+      }
+      return false;
+    }
+
+    function isMusterZone(x, y) {
+      if (x >= 5 && x <= 13 && y >= 4 && y <= 14) return true;
+      if (x >= 77 && x <= 87 && y >= 4 && y <= 14) return true;
+      return false;
+    }
+
+    function addCorridor(gx, gy, gw, gh) {
+      corridors.push({ x: gx, y: gy, w: gw, h: gh });
+      fillGrid(gx, gy, gw, gh, 1);
+    }
+
+    function addCabin(gx, gy, gw, gh, doorBridgeY) {
+      cabins.push({ x: gx, y: gy, w: gw, h: gh, doorY: doorBridgeY });
+      // 객실 내부를 통행 가능(type 8)으로 설정
+      fillGrid(gx, gy, gw, gh, 8);
+      // 출입구: 객실 중앙에서 복도 방향으로 1셀 연결
+      if (doorBridgeY !== undefined) {
+        const doorX = gx + Math.floor(gw / 2);
+        if (doorBridgeY >= 0 && doorBridgeY < ROWS && doorX >= 0 && doorX < COLS) {
+          grid[doorBridgeY][doorX] = 1; // 출입구 셀을 통행 가능으로
+          doorways.push({ x: doorX, y: doorBridgeY, roomX: gx, roomY: gy });
+        }
+      }
+    }
+
+    function addRestaurant(gx, gy, gw, gh) {
+      restaurants.push({ x: gx, y: gy, w: gw, h: gh });
+      fillGrid(gx, gy, gw, gh, 3);
+      // Make interior walkable
+      fillGrid(gx + 1, gy + 1, gw - 2, gh - 2, 1);
+      // 레스토랑 출입구 (좌측, 우측, 복도 연결)
+      const doorPositions = [
+        { x: gx, y: gy + Math.floor(gh / 2) },       // 좌측 출입구
+        { x: gx + gw - 1, y: gy + Math.floor(gh / 2) }, // 우측 출입구
+        { x: gx + Math.floor(gw / 3), y: gy },        // 상단 출입구
+        { x: gx + Math.floor(gw * 2 / 3), y: gy + gh - 1 }, // 하단 출입구
+      ];
+      for (const dp of doorPositions) {
+        if (dp.y >= 0 && dp.y < ROWS && dp.x >= 0 && dp.x < COLS) {
+          grid[dp.y][dp.x] = 1;
+          doorways.push({ x: dp.x, y: dp.y, type: 'restaurant' });
+        }
+      }
+    }
+
+    function addEngineRoom(gx, gy, gw, gh) {
+      engineRoom = { x: gx, y: gy, w: gw, h: gh };
+      fillGrid(gx, gy, gw, gh, 4);
+    }
+
+    function addMusterStation(gx, gy, gw, gh) {
+      musterStations.push({ x: gx, y: gy, w: gw, h: gh });
+      fillGrid(gx, gy, gw, gh, 5);
+    }
+
+    function addStairway(gx, gy, gw, gh) {
+      stairways.push({ x: gx, y: gy, w: gw, h: gh });
+      fillGrid(gx, gy, gw, gh, 6);
+    }
+
+    function addExit(gx, gy, gw, gh) {
+      exits.push({ x: gx, y: gy, w: gw, h: gh });
+      fillGrid(gx, gy, gw, gh, 7);
+    }
+
+    function fillGrid(gx, gy, gw, gh, val) {
+      for (let r = gy; r < gy + gh && r < ROWS; r++) {
+        for (let c = gx; c < gx + gw && c < COLS; c++) {
+          if (r >= 0 && c >= 0 && r < ROWS && c < COLS) {
+            grid[r][c] = val;
+          }
+        }
+      }
+    }
+
+    function isWalkable(gr, gc) {
+      if (gr < 0 || gc < 0 || gr >= ROWS || gc >= COLS) return false;
+      const v = grid[gr][gc];
+      // 1=복도, 3=레스토랑, 5=집결지, 6=계단, 7=출구, 8=객실내부
+      return v === 1 || v === 3 || v === 5 || v === 6 || v === 7 || v === 8;
+    }
+
+    // ───── Spawn Passengers ─────
+    function spawnPassengers() {
+      passengers = [];
+      const walkableCells = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (isWalkable(r, c) && grid[r][c] !== 7) {
+            walkableCells.push({ r, c });
+          }
+        }
+      }
+
+      for (let i = 0; i < passengerCount; i++) {
+        const cell = walkableCells[Math.floor(Math.random() * walkableCells.length)];
+        const isSlow = Math.random() < 0.25; // 25% are slow
+        const px = cell.c * CELL + CELL / 2;
+        const py = cell.r * CELL + CELL / 2;
+        passengers.push({
+          x: px,
+          y: py,
+          speed: isSlow ? (0.4 + Math.random() * 0.3) : (0.8 + Math.random() * 0.5),
+          isSlow: isSlow,
+          evacuated: false,
+          evacuatedTime: 0,
+          path: [],
+          pathTimer: 0,
+          targetExit: null,
+          opacity: 1,
+          usingExtinguisher: false,
+          extTarget: null,
+          fireTarget: null,
+          extPhase: null,
+          extTimer: 0,
+          stuckTimer: 0,  // 멈춤 감지 타이머
+          lastX: px,      // 이전 위치 추적
+          lastY: py
+        });
+      }
+    }
+
+    // ───── Fire Handling ─────
+    function addFire(px, py) {
+      fires.push({
+        x: px,
+        y: py,
+        radius: 8,
+        smokeRadius: 20,
+        startTime: elapsedTime,
+        pulsePhase: Math.random() * Math.PI * 2
+      });
+    }
+
+    function updateFires(dt) {
+      for (const f of fires) {
+        const t = elapsedTime - f.startTime;
+        f.radius = 8 + 0.6 * Math.pow(t, 1.3);
+        f.smokeRadius = f.radius * 2.5 + 0.3 * t;
+        // Cap maximums
+        if (f.radius > 120) f.radius = 120;
+        if (f.smokeRadius > 200) f.smokeRadius = 200;
+        f.pulsePhase += dt * 4;
+      }
+    }
+
+    function isInFire(px, py) {
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        if (Math.sqrt(dx * dx + dy * dy) < f.radius) return true;
+      }
+      return false;
+    }
+
+    function isInSmoke(px, py) {
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        if (Math.sqrt(dx * dx + dy * dy) < f.smokeRadius) return true;
+      }
+      return false;
+    }
+
+    function fireDangerAt(px, py) {
+      let danger = 0;
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < f.radius) {
+          danger += 100000; // 화재 내부 = 사실상 통행 불가
+        } else if (dist < f.radius * 1.5) {
+          danger += 5000 * (1 - (dist - f.radius) / (f.radius * 0.5)); // 화재 근접 = 매우 높은 비용
+        } else if (dist < f.smokeRadius) {
+          danger += 800 * (1 - dist / f.smokeRadius); // 연기 구역 = 높은 비용
+        } else if (dist < f.smokeRadius * 1.3) {
+          danger += 200 * (1 - dist / (f.smokeRadius * 1.3)); // 연기 외곽 = 중간 비용
+        }
+      }
+      return danger;
+    }
+
+    // 화재 구역 내부인지 확인 (A* 경로에서 완전 차단용)
+    function isBlockedByFire(px, py) {
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        if (Math.sqrt(dx * dx + dy * dy) < f.radius * 1.1) return true;
+      }
+      return false;
+    }
+
+    // ───── A* Pathfinding ─────
+    function findPath(startX, startY, targetExit) {
+      const sr = Math.floor(startY / CELL);
+      const sc = Math.floor(startX / CELL);
+      const er = Math.floor((targetExit.y * CELL + targetExit.h * CELL / 2) / CELL);
+      const ec = Math.floor((targetExit.x * CELL + targetExit.w * CELL / 2) / CELL);
+
+      if (sr === er && sc === ec) return [];
+
+      // Simple A*
+      const open = [];
+      const closed = new Set();
+      const gScore = {};
+      const fScore = {};
+      const cameFrom = {};
+
+      const key = (r, c) => r * COLS + c;
+      const startKey = key(sr, sc);
+      const endKey = key(er, ec);
+
+      gScore[startKey] = 0;
+      fScore[startKey] = heuristic(sr, sc, er, ec);
+      open.push({ r: sr, c: sc, f: fScore[startKey] });
+
+      const dirs = [
+        [-1, 0], [1, 0], [0, -1], [0, 1],
+        [-1, -1], [-1, 1], [1, -1], [1, 1]
+      ];
+
+      let iterations = 0;
+      const maxIter = 20000;
+
+      while (open.length > 0 && iterations < maxIter) {
+        iterations++;
+        // Find lowest fScore
+        open.sort((a, b) => a.f - b.f);
+        const current = open.shift();
+        const ck = key(current.r, current.c);
+
+        if (ck === endKey) {
+          // Reconstruct path
+          const path = [];
+          let k = ck;
+          while (k !== startKey) {
+            const r = Math.floor(k / COLS);
+            const c = k % COLS;
+            path.unshift({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2 });
+            k = cameFrom[k];
+            if (k === undefined) break;
+          }
+          return path;
+        }
+
+        closed.add(ck);
+
+        for (const [dr, dc] of dirs) {
+          const nr = current.r + dr;
+          const nc = current.c + dc;
+          if (!isWalkable(nr, nc)) continue;
+
+          const nk = key(nr, nc);
+          if (closed.has(nk)) continue;
+
+          // 화재 구역 내부 셀은 완전 차단
+          const cellPx = nc * CELL + CELL / 2;
+          const cellPy = nr * CELL + CELL / 2;
+          if (isBlockedByFire(cellPx, cellPy)) continue;
+
+          // Diagonal check - avoid cutting corners
+          if (dr !== 0 && dc !== 0) {
+            if (!isWalkable(current.r + dr, current.c) || !isWalkable(current.r, current.c + dc)) continue;
+          }
+
+          const moveCost = (dr !== 0 && dc !== 0) ? 1.414 : 1;
+          const dangerCost = fireDangerAt(cellPx, cellPy) * 0.5;
+          const tentativeG = (gScore[ck] || 0) + moveCost + dangerCost;
+
+          if (tentativeG < (gScore[nk] || Infinity)) {
+            cameFrom[nk] = ck;
+            gScore[nk] = tentativeG;
+            fScore[nk] = tentativeG + heuristic(nr, nc, er, ec);
+            if (!open.find(o => key(o.r, o.c) === nk)) {
+              open.push({ r: nr, c: nc, f: fScore[nk] });
+            }
+          }
+        }
+      }
+
+      return []; // no path found
+    }
+
+    function heuristic(r1, c1, r2, c2) {
+      return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+    }
+
+    function findNearestSafeExit(px, py) {
+      let best = null;
+      let bestScore = Infinity;
+      for (const ex of exits) {
+        const ecx = ex.x * CELL + ex.w * CELL / 2;
+        const ecy = ex.y * CELL + ex.h * CELL / 2;
+        // 화재 내부의 출구 제외
+        if (isInFire(ecx, ecy)) continue;
+
+        const dx = px - ecx, dy = py - ecy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // 승객→출구 경로상 화재가 있는지 평가
+        // 경로 중간점들을 샘플링하여 화재 근접도 체크
+        let pathFirePenalty = 0;
+        const samples = 8;
+        for (let i = 1; i <= samples; i++) {
+          const t = i / (samples + 1);
+          const sx = px + (ecx - px) * t;
+          const sy = py + (ecy - py) * t;
+          for (const f of fires) {
+            const fdx = sx - f.x, fdy = sy - f.y;
+            const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+            if (fdist < f.radius * 1.5) {
+              pathFirePenalty += 10000; // 경로상 화재 → 큰 패널티
+            } else if (fdist < f.smokeRadius) {
+              pathFirePenalty += 500 * (1 - fdist / f.smokeRadius);
+            }
+          }
+        }
+
+        // 출구 자체의 화재 근접 패널티
+        let exitFirePenalty = 0;
+        for (const f of fires) {
+          const fdx = ecx - f.x, fdy = ecy - f.y;
+          const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+          if (fdist < f.smokeRadius) {
+            exitFirePenalty += 2000 * (1 - fdist / f.smokeRadius);
+          }
+        }
+
+        const score = dist + pathFirePenalty + exitFirePenalty;
+        if (score < bestScore) {
+          bestScore = score;
+          best = ex;
+        }
+      }
+      return best || exits[0];
+    }
+
+    // ───── 소화기 사용 로직 ─────
+    function findNearestExtinguisher(px, py, maxDist) {
+      let best = null;
+      let bestDist = maxDist || 80; // 최대 탐색 거리 (px)
+      for (const fe of fireExtinguishers) {
+        if (!fe.available) continue;
+        const dx = px - fe.x, dy = py - fe.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = fe;
+        }
+      }
+      return best;
+    }
+
+    function useExtinguisher(fe, fireTarget) {
+      fe.available = false;
+      // 소화기 사용 시 화재 반경을 줄임 (완전 진화는 아님)
+      fireTarget.radius = Math.max(fireTarget.radius * 0.4, 3);
+      fireTarget.smokeRadius = Math.max(fireTarget.smokeRadius * 0.5, 8);
+      // 화재 확산 속도 대폭 감소 (재발화 시간 벌기)
+      fireTarget.startTime = elapsedTime - 2;
+    }
+
+    function findNearestFireToPoint(px, py, maxDist) {
+      let best = null;
+      let bestDist = maxDist || 100;
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = f;
+        }
+      }
+      return best;
+    }
+
+    // ───── 긴급 이동 (경로를 못 찾은 승객용) ─────
+    function emergencyMove(p, dt) {
+      const gr = Math.floor(p.y / CELL);
+      const gc = Math.floor(p.x / CELL);
+
+      // 화재 반대 방향 벡터 계산
+      let awayDx = 0, awayDy = 0;
+      for (const f of fires) {
+        const fdx = p.x - f.x, fdy = p.y - f.y;
+        const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+        if (fdist > 0 && fdist < 250) {
+          awayDx += fdx / fdist;
+          awayDy += fdy / fdist;
+        }
+      }
+      // 화재가 없으면 가장 가까운 출구 방향으로
+      if (awayDx === 0 && awayDy === 0) {
+        const ex = findNearestSafeExit(p.x, p.y);
+        if (ex) {
+          const ecx = ex.x * CELL + ex.w * CELL / 2;
+          const ecy = ex.y * CELL + ex.h * CELL / 2;
+          awayDx = ecx - p.x;
+          awayDy = ecy - p.y;
+          const d = Math.sqrt(awayDx * awayDx + awayDy * awayDy);
+          if (d > 0) { awayDx /= d; awayDy /= d; }
+        }
+      }
+
+      // 8방향 중 화재 반대로 가장 잘 맞는 이동 가능한 셀 선택
+      const dirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+      let bestDir = null;
+      let bestScore = -Infinity;
+
+      for (const [dr, dc] of dirs) {
+        const nr = gr + dr, nc = gc + dc;
+        if (!isWalkable(nr, nc)) continue;
+        const cellPx = nc * CELL + CELL / 2;
+        const cellPy = nr * CELL + CELL / 2;
+        if (isBlockedByFire(cellPx, cellPy)) continue;
+        // 대각선 코너 통과 방지
+        if (dr !== 0 && dc !== 0) {
+          if (!isWalkable(gr + dr, gc) || !isWalkable(gr, gc + dc)) continue;
+        }
+        const score = dc * awayDx + dr * awayDy - fireDangerAt(cellPx, cellPy) * 0.001;
+        if (score > bestScore) {
+          bestScore = score;
+          bestDir = [dr, dc];
+        }
+      }
+
+      if (bestDir) {
+        const targetX = (gc + bestDir[1]) * CELL + CELL / 2;
+        const targetY = (gr + bestDir[0]) * CELL + CELL / 2;
+        const dx = targetX - p.x, dy = targetY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const speed = p.speed * CELL * 2 * 0.5; // 긴급 이동은 느림
+        if (dist > 1) {
+          p.x += (dx / dist) * speed * dt;
+          p.y += (dy / dist) * speed * dt;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    // ───── Update Passengers ─────
+    function updatePassengers(dt) {
+      let atRisk = 0;
+
+      for (const p of passengers) {
+        if (p.evacuated) continue;
+
+        // Check if passenger is in fire zone -> they can't move through fire
+        if (isInFire(p.x, p.y)) {
+          atRisk++;
+          continue;
+        }
+
+        if (isInSmoke(p.x, p.y)) {
+          atRisk++;
+        }
+
+        if (mode !== 'evacuating') continue;
+
+        // ★ 멈춤 감지: 이전 프레임 대비 이동 거리 체크
+        const movedDx = p.x - p.lastX, movedDy = p.y - p.lastY;
+        const movedDist = Math.sqrt(movedDx * movedDx + movedDy * movedDy);
+        if (movedDist < 0.5) {
+          p.stuckTimer += dt;
+        } else {
+          p.stuckTimer = 0;
+        }
+        p.lastX = p.x;
+        p.lastY = p.y;
+
+        // ★ 화재로 차단된 경로 포인트를 건너뛰기 (전체 재탐색 대신)
+        while (p.path.length > 0 && isBlockedByFire(p.path[0].x, p.path[0].y)) {
+          p.path.shift();
+        }
+
+        // 경로 재계산 조건
+        p.pathTimer -= dt;
+        const needsRepath = p.path.length === 0 || p.pathTimer <= 0;
+        // 오래 멈춰있으면 더 자주 재탐색
+        const isStuck = p.stuckTimer > 2;
+        const shouldRepath = needsRepath || (isStuck && p.pathTimer <= 0.3);
+
+        if (shouldRepath) {
+          // 멈춰있을 때: 모든 출구 시도 (가장 안전한 것부터)
+          if (isStuck) {
+            p.targetExit = findNearestSafeExit(p.x, p.y);
+            p.path = findPath(p.x, p.y, p.targetExit);
+
+            // 첫 번째 출구로 경로 못 찾으면 다른 출구들도 시도
+            if (p.path.length === 0) {
+              for (const ex of exits) {
+                if (ex === p.targetExit) continue;
+                const ecx = ex.x * CELL + ex.w * CELL / 2;
+                const ecy = ex.y * CELL + ex.h * CELL / 2;
+                if (isInFire(ecx, ecy)) continue;
+                const altPath = findPath(p.x, p.y, ex);
+                if (altPath.length > 0) {
+                  p.path = altPath;
+                  p.targetExit = ex;
+                  break;
+                }
+              }
+            }
+          } else {
+            p.targetExit = findNearestSafeExit(p.x, p.y);
+            p.path = findPath(p.x, p.y, p.targetExit);
+          }
+          p.pathTimer = 1.0 + Math.random() * 1.5;
+
+          // ★ 경로를 찾지 못한 경우 = 화재로 차단됨 → 소화기 사용 시도
+          if (p.path.length === 0 && !p.usingExtinguisher) {
+            const nearFire = findNearestFireToPoint(p.x, p.y, 120);
+            if (nearFire) {
+              const fe = findNearestExtinguisher(p.x, p.y, 150);
+              if (fe) {
+                p.usingExtinguisher = true;
+                p.extTarget = fe;
+                p.fireTarget = nearFire;
+                p.extPhase = 'goToFE';
+                p.extTimer = 0;
+              }
+            }
+          }
+        }
+
+        // ★ 소화기 사용 중인 승객 처리
+        if (p.usingExtinguisher) {
+          const speed = p.speed * CELL * 2 * 0.8;
+          if (p.extPhase === 'goToFE') {
+            const dx = p.extTarget.x - p.x, dy = p.extTarget.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 8) {
+              p.extPhase = 'goToFire';
+            } else {
+              p.x += (dx / dist) * speed * dt;
+              p.y += (dy / dist) * speed * dt;
+            }
+            continue;
+          }
+          if (p.extPhase === 'goToFire') {
+            const dx = p.fireTarget.x - p.x, dy = p.fireTarget.y - p.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            const targetDist = p.fireTarget.radius + 10;
+            if (dist < targetDist + 5) {
+              p.extPhase = 'extinguish';
+              p.extTimer = 0;
+            } else {
+              p.x += (dx / dist) * speed * dt;
+              p.y += (dy / dist) * speed * dt;
+            }
+            continue;
+          }
+          if (p.extPhase === 'extinguish') {
+            p.extTimer += dt;
+            if (p.extTimer >= 3) {
+              useExtinguisher(p.extTarget, p.fireTarget);
+              p.usingExtinguisher = false;
+              p.path = [];
+              p.pathTimer = 0;
+              p.stuckTimer = 0;
+            }
+            continue;
+          }
+        }
+
+        // ★ 경로가 있으면 따라 이동
+        if (p.path.length > 0) {
+          const target = p.path[0];
+          const dx = target.x - p.x;
+          const dy = target.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          let speed = p.speed * CELL * 2;
+          if (isInSmoke(p.x, p.y)) speed *= 0.5;
+
+          // Crowd density
+          let nearby = 0;
+          for (const other of passengers) {
+            if (other === p || other.evacuated) continue;
+            const odx = other.x - p.x, ody = other.y - p.y;
+            if (Math.sqrt(odx * odx + ody * ody) < CELL * 3) nearby++;
+          }
+          if (nearby > 0) {
+            speed *= Math.pow(1 - Math.min(nearby / 8, 0.8), 1.4);
+          }
+
+          const moveAmt = speed * dt;
+          if (dist < moveAmt) {
+            p.x = target.x;
+            p.y = target.y;
+            p.path.shift();
+          } else {
+            p.x += (dx / dist) * moveAmt;
+            p.y += (dy / dist) * moveAmt;
+          }
+        }
+        // ★ 경로 없고 2초 이상 멈춤 → 긴급 이동 (화재 반대 방향)
+        else if (p.stuckTimer > 2) {
+          emergencyMove(p, dt);
+        }
+
+        // Check if reached exit
+        for (const ex of exits) {
+          const ecx = ex.x * CELL + ex.w * CELL / 2;
+          const ecy = ex.y * CELL + ex.h * CELL / 2;
+          const dx = p.x - ecx, dy = p.y - ecy;
+          if (Math.sqrt(dx * dx + dy * dy) < CELL * 2) {
+            p.evacuated = true;
+            p.evacuatedTime = elapsedTime;
+            evacuatedCount++;
+            evacuationTimes.push(elapsedTime);
+            break;
+          }
+        }
+      }
+
+      return atRisk;
+    }
+
+    // ───── Drawing ─────
+    function drawShip() {
+      // Ship hull outline
+      ctx.fillStyle = '#111a25';
+      ctx.fillRect(0, 0, W, H);
+
+      // Ship hull shape
+      ctx.beginPath();
+      ctx.moveTo(40, H - 15);
+      ctx.quadraticCurveTo(10, H - 40, 30, 30);
+      ctx.lineTo(60, 15);
+      ctx.lineTo(W - 60, 15);
+      ctx.lineTo(W - 30, 30);
+      ctx.quadraticCurveTo(W - 10, H - 40, W - 40, H - 15);
+      ctx.closePath();
+      ctx.fillStyle = '#152232';
+      ctx.fill();
+      ctx.strokeStyle = '#2a4060';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Engine room
+      if (engineRoom) {
+        const er = engineRoom;
+        ctx.fillStyle = 'rgba(128, 90, 213, 0.12)';
+        ctx.fillRect(er.x * CELL, er.y * CELL, er.w * CELL, er.h * CELL);
+        ctx.strokeStyle = 'rgba(128, 90, 213, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(er.x * CELL, er.y * CELL, er.w * CELL, er.h * CELL);
+        ctx.fillStyle = 'rgba(128, 90, 213, 0.6)';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('ENGINE ROOM / 기관실', er.x * CELL + 6, er.y * CELL + 14);
+      }
+
+      // Cabins (객실)
+      for (const cab of cabins) {
+        ctx.fillStyle = '#2D3A4A';
+        ctx.fillRect(cab.x * CELL, cab.y * CELL, cab.w * CELL, cab.h * CELL);
+        ctx.strokeStyle = '#4A5C6E';
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(cab.x * CELL, cab.y * CELL, cab.w * CELL, cab.h * CELL);
+      }
+
+      // 출입구 (Doorways) - 밝은 노란색 표시
+      for (const dw of doorways) {
+        const dx = dw.x * CELL;
+        const dy = dw.y * CELL;
+        // 출입구 배경
+        ctx.fillStyle = 'rgba(236, 201, 75, 0.6)';
+        ctx.fillRect(dx + 1, dy + 1, CELL - 2, CELL - 2);
+        // 출입구 테두리
+        ctx.strokeStyle = 'rgba(236, 201, 75, 0.9)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(dx + 1, dy + 1, CELL - 2, CELL - 2);
+      }
+
+      // 소화기 (Fire Extinguishers) - 빨간 사각형 + FE 표시
+      for (const fe of fireExtinguishers) {
+        const fex = fe.x - 4;
+        const fey = fe.y - 4;
+        if (fe.available) {
+          // 사용 가능: 빨간 사각형
+          ctx.fillStyle = 'rgba(220, 38, 38, 0.8)';
+          ctx.fillRect(fex, fey, 8, 8);
+          ctx.strokeStyle = '#FCA5A5';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(fex, fey, 8, 8);
+          // 십자 표시 (소화기 심볼)
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(fe.x, fey + 1);
+          ctx.lineTo(fe.x, fey + 7);
+          ctx.moveTo(fex + 1, fe.y);
+          ctx.lineTo(fex + 7, fe.y);
+          ctx.stroke();
+        } else {
+          // 사용됨: 회색
+          ctx.fillStyle = 'rgba(100, 116, 139, 0.4)';
+          ctx.fillRect(fex, fey, 8, 8);
+        }
+      }
+
+      // Restaurant
+      for (const rest of restaurants) {
+        ctx.fillStyle = 'rgba(237, 137, 54, 0.08)';
+        ctx.fillRect(rest.x * CELL, rest.y * CELL, rest.w * CELL, rest.h * CELL);
+        ctx.strokeStyle = 'rgba(237, 137, 54, 0.4)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(rest.x * CELL, rest.y * CELL, rest.w * CELL, rest.h * CELL);
+        ctx.fillStyle = 'rgba(237, 137, 54, 0.6)';
+        ctx.font = '10px sans-serif';
+        ctx.fillText('RESTAURANT / 레스토랑', rest.x * CELL + 6, rest.y * CELL + 14);
+      }
+
+      // Corridors
+      for (const cor of corridors) {
+        ctx.fillStyle = '#3a4858';
+        ctx.fillRect(cor.x * CELL, cor.y * CELL, cor.w * CELL, cor.h * CELL);
+      }
+
+      // Muster stations
+      for (const ms of musterStations) {
+        ctx.fillStyle = 'rgba(56, 161, 105, 0.15)';
+        ctx.fillRect(ms.x * CELL, ms.y * CELL, ms.w * CELL, ms.h * CELL);
+        ctx.strokeStyle = 'rgba(56, 161, 105, 0.5)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(ms.x * CELL, ms.y * CELL, ms.w * CELL, ms.h * CELL);
+        ctx.setLineDash([]);
+        ctx.fillStyle = 'rgba(56, 161, 105, 0.7)';
+        ctx.font = 'bold 9px sans-serif';
+        ctx.fillText('MUSTER', ms.x * CELL + 4, ms.y * CELL + 14);
+        ctx.fillText('집결지', ms.x * CELL + 4, ms.y * CELL + 26);
+      }
+
+      // Stairways
+      for (const sw of stairways) {
+        ctx.fillStyle = 'rgba(49, 130, 206, 0.2)';
+        ctx.fillRect(sw.x * CELL, sw.y * CELL, sw.w * CELL, sw.h * CELL);
+        ctx.strokeStyle = 'rgba(49, 130, 206, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sw.x * CELL, sw.y * CELL, sw.w * CELL, sw.h * CELL);
+        // Draw stair lines
+        const sx = sw.x * CELL, sy = sw.y * CELL;
+        const swidth = sw.w * CELL, sheight = sw.h * CELL;
+        ctx.strokeStyle = 'rgba(49, 130, 206, 0.4)';
+        ctx.lineWidth = 0.5;
+        for (let i = 1; i < 4; i++) {
+          ctx.beginPath();
+          ctx.moveTo(sx, sy + (sheight / 4) * i);
+          ctx.lineTo(sx + swidth, sy + (sheight / 4) * i);
+          ctx.stroke();
+        }
+      }
+
+      // Exits
+      for (const ex of exits) {
+        ctx.fillStyle = '#38A169';
+        ctx.fillRect(ex.x * CELL, ex.y * CELL, ex.w * CELL, ex.h * CELL);
+        // Glow
+        ctx.shadowColor = '#38A169';
+        ctx.shadowBlur = 8;
+        ctx.fillRect(ex.x * CELL, ex.y * CELL, ex.w * CELL, ex.h * CELL);
+        ctx.shadowBlur = 0;
+        // Label
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 7px sans-serif';
+        ctx.fillText('EXIT', ex.x * CELL + 1, ex.y * CELL + 12);
+      }
+
+      // Deck labels
+      ctx.fillStyle = 'rgba(160, 174, 192, 0.4)';
+      ctx.font = '11px sans-serif';
+      ctx.fillText('Deck 4 - Pool / Muster', 90, 68);
+      ctx.fillText('Deck 3 - Restaurant / Lounge', 90, 213);
+      ctx.fillText('Deck 2 - Passenger Cabins', 90, 348);
+    }
+
+    function drawFires() {
+      for (const f of fires) {
+        // Smoke (outer)
+        const smokeGrad = ctx.createRadialGradient(f.x, f.y, f.radius, f.x, f.y, f.smokeRadius);
+        smokeGrad.addColorStop(0, 'rgba(100, 100, 100, 0.25)');
+        smokeGrad.addColorStop(0.5, 'rgba(80, 80, 80, 0.12)');
+        smokeGrad.addColorStop(1, 'rgba(60, 60, 60, 0)');
+        ctx.fillStyle = smokeGrad;
+        ctx.beginPath();
+        ctx.ellipse(f.x, f.y, f.smokeRadius * 1.3, f.smokeRadius, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fire (inner)
+        const pulse = 1 + 0.15 * Math.sin(f.pulsePhase);
+        const drawRadius = f.radius * pulse;
+        const fireGrad = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, drawRadius);
+        fireGrad.addColorStop(0, 'rgba(255, 255, 100, 0.9)');
+        fireGrad.addColorStop(0.3, 'rgba(255, 120, 20, 0.7)');
+        fireGrad.addColorStop(0.7, 'rgba(229, 62, 62, 0.4)');
+        fireGrad.addColorStop(1, 'rgba(229, 62, 62, 0)');
+        ctx.fillStyle = fireGrad;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, drawRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fire icon
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('FIRE', f.x, f.y + 3);
+        ctx.textAlign = 'start';
+      }
+    }
+
+    function drawPassengers() {
+      for (const p of passengers) {
+        if (p.evacuated) continue;
+
+        const radius = 4;
+
+        // Draw path (faint)
+        if (p.path.length > 0 && mode === 'evacuating') {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          for (let i = 0; i < Math.min(p.path.length, 8); i++) {
+            ctx.lineTo(p.path[i].x, p.path[i].y);
+          }
+          ctx.strokeStyle = p.isSlow ? 'rgba(236,201,75,0.15)' : 'rgba(74,144,217,0.15)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        // Dot
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+
+        if (p.usingExtinguisher) {
+          // 소화기 사용 중: 주황색 + 깜박임
+          ctx.fillStyle = p.extPhase === 'extinguish'
+            ? (Math.sin(elapsedTime * 8) > 0 ? '#F97316' : '#DC2626')
+            : '#F97316';
+          ctx.fill();
+          // 소화기 아이콘 표시
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 7px sans-serif';
+          ctx.fillText('FE', p.x - 6, p.y - 7);
+        } else if (isInFire(p.x, p.y)) {
+          ctx.fillStyle = '#E53E3E';
+          ctx.fill();
+        } else if (p.isSlow) {
+          ctx.fillStyle = '#ECC94B';
+          ctx.fill();
+        } else {
+          ctx.fillStyle = '#4A90D9';
+          ctx.fill();
+        }
+
+        // Outline
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+
+        // ★ 멈춤 경고 표시 (3초 이상 멈춘 승객)
+        if (p.stuckTimer > 3 && mode === 'evacuating' && !p.usingExtinguisher) {
+          const pulseR = 7 + 3 * Math.sin(elapsedTime * 5);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, pulseR, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(239, 68, 68, ' + (0.4 + 0.3 * Math.sin(elapsedTime * 5)) + ')';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          // SOS 텍스트
+          ctx.fillStyle = '#EF4444';
+          ctx.font = 'bold 6px sans-serif';
+          ctx.fillText('!', p.x - 2, p.y - 9);
+        }
+      }
+    }
+
+    function drawEvacuatedFlash() {
+      // Brief green dot flash at exits when someone evacuates
+      // (simple visual feedback)
+      for (const ex of exits) {
+        const ecx = ex.x * CELL + ex.w * CELL / 2;
+        const ecy = ex.y * CELL + ex.h * CELL / 2;
+        ctx.beginPath();
+        ctx.arc(ecx, ecy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(56, 161, 105, 0.8)';
+        ctx.fill();
+      }
+    }
+
+    // ───── UI Updates ─────
+    function updateStats(atRisk) {
+      const activePassengers = passengers.filter(p => !p.evacuated);
+      const total = passengers.length;
+
+      statEvacuated.textContent = evacuatedCount;
+      statRemaining.textContent = activePassengers.length;
+      statAtRisk.textContent = atRisk;
+      statTime.textContent = elapsedTime.toFixed(1) + 's';
+
+      if (evacuationTimes.length > 0) {
+        const avg = evacuationTimes.reduce((a, b) => a + b, 0) / evacuationTimes.length;
+        statAvgTime.textContent = avg.toFixed(1) + 's';
+      }
+
+      // Danger zones count (grid cells in fire)
+      let dangerCount = 0;
+      for (const f of fires) {
+        dangerCount += Math.ceil(f.radius / CELL);
+      }
+      statDangerZones.textContent = dangerCount;
+
+      const pct = total > 0 ? Math.round((evacuatedCount / total) * 100) : 0;
+      progPercent.textContent = pct + '%';
+      progBar.style.width = pct + '%';
+
+      statFireCount.textContent = fires.length;
+      if (fires.length > 0) {
+        const maxR = Math.max(...fires.map(f => f.radius));
+        statFireRadius.textContent = Math.round(maxR) + 'px';
+      } else {
+        statFireRadius.textContent = '0px';
+      }
+
+      // 소화기 통계
+      const feAvail = fireExtinguishers.filter(fe => fe.available).length;
+      const feTotal = fireExtinguishers.length;
+      document.getElementById('statFECount').textContent = feAvail + '/' + feTotal;
+      const feActive = passengers.filter(p => p.usingExtinguisher).length;
+      document.getElementById('statFEActive').textContent = feActive + '명';
+
+      // 멈춤 승객 수
+      const stuckCount = passengers.filter(p => !p.evacuated && p.stuckTimer > 3 && !p.usingExtinguisher).length;
+      document.getElementById('statStuck').textContent = stuckCount + '명';
+
+      // Check done
+      if (mode === 'evacuating' && activePassengers.length === 0) {
+        mode = 'done';
+        statMode.textContent = '대피 완료!';
+        statMode.style.color = 'var(--safe)';
+      }
+    }
+
+    // ───── Main Loop ─────
+    function loop(timestamp) {
+      if (!lastFrameTime) lastFrameTime = timestamp;
+      const rawDt = (timestamp - lastFrameTime) / 1000;
+      lastFrameTime = timestamp;
+      const dt = rawDt * simSpeed;
+
+      if (mode === 'evacuating' || fires.length > 0) {
+        elapsedTime += dt;
+      }
+
+      // Update
+      updateFires(dt);
+      const atRisk = updatePassengers(dt);
+
+      // Draw
+      ctx.clearRect(0, 0, W, H);
+      drawShip();
+      drawFires();
+      drawPassengers();
+      drawEvacuatedFlash();
+      updateStats(atRisk);
+
+      animId = requestAnimationFrame(loop);
+    }
+
+    // ───── Event Handlers ─────
+    function getCanvasCoords(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      const scaleY = H / rect.height;
+      return {
+        x: (e.clientX - rect.left) * scaleX,
+        y: (e.clientY - rect.top) * scaleY
+      };
+    }
+
+    canvas.addEventListener('click', function (e) {
+      if (mode !== 'placing') return;
+      const coords = getCanvasCoords(e);
+      addFire(coords.x, coords.y);
+      statFireCount.textContent = fires.length;
+      fireCountBadge.style.display = 'inline-block';
+      fireCountBadge.textContent = fires.length + '개 배치';
+      btnEvac.disabled = false;
+      overlay.innerHTML = '<b style="color:#DC2626;font-size:1.1rem;">' + fires.length + '개 화재 배치 완료</b><br>' +
+        '<span style="font-size:0.85rem;">클릭하여 추가 배치 가능</span><br>' +
+        '<span style="font-size:0.8rem;color:#64748B;">준비되면 "대피 시작" 버튼을 누르세요</span>';
+    });
+
+    btnFire.addEventListener('click', function () {
+      if (mode === 'idle' || mode === 'placing') {
+        mode = 'placing';
+        statMode.textContent = '화재 배치 모드';
+        statMode.style.color = 'var(--danger)';
+        overlay.classList.remove('hidden');
+        if (fires.length === 0) {
+          overlay.innerHTML = '덱 위를 클릭하여 화재를 배치하세요<br>' +
+            '<span style="font-size:0.85rem;font-weight:600;color:#DC2626;">여러 곳에 동시 다발 화재 배치 가능</span><br>' +
+            '<span style="font-size:0.8rem;color:#64748B;">원하는 만큼 클릭한 후 "대피 시작"을 누르세요</span>';
+        } else {
+          overlay.innerHTML = '<b style="color:#DC2626;font-size:1.1rem;">' + fires.length + '개 화재 배치 완료</b><br>' +
+            '<span style="font-size:0.85rem;">클릭하여 추가 배치 가능</span><br>' +
+            '<span style="font-size:0.8rem;color:#64748B;">준비되면 "대피 시작" 버튼을 누르세요</span>';
+        }
+        btnFire.classList.add('active-mode');
+        canvas.style.cursor = 'crosshair';
+      }
+    });
+
+    btnEvac.addEventListener('click', function () {
+      if (fires.length === 0) return;
+      mode = 'evacuating';
+      statMode.textContent = '대피 진행 중... (화재 ' + fires.length + '개)';
+      statMode.style.color = 'var(--warning)';
+      overlay.classList.add('hidden');
+      btnFire.classList.remove('active-mode');
+      btnFire.disabled = true;
+      btnEvac.disabled = true;
+      canvas.style.cursor = 'default';
+      fireCountBadge.style.background = '#FEF3C7';
+      fireCountBadge.style.color = '#D97706';
+      fireCountBadge.style.borderColor = '#FDE68A';
+    });
+
+    btnReset.addEventListener('click', function () {
+      resetSimulation();
+    });
+
+    speedSlider.addEventListener('input', function () {
+      simSpeed = parseFloat(this.value);
+      speedVal.textContent = simSpeed + 'x';
+    });
+
+    countInput.addEventListener('input', function () {
+      const val = parseInt(this.value);
+      if (!isNaN(val) && val >= 1) {
+        passengerCount = val;
+        if (mode === 'idle') {
+          spawnPassengers();
+        }
+      }
+    });
+
+    // ───── Reset ─────
+    function resetSimulation() {
+      mode = 'idle';
+      fires = [];
+      for (const fe of fireExtinguishers) fe.available = true;
+      evacuatedCount = 0;
+      elapsedTime = 0;
+      evacuationTimes = [];
+      lastFrameTime = 0;
+      btnFire.disabled = false;
+      btnEvac.disabled = true;
+      btnFire.classList.remove('active-mode');
+      canvas.style.cursor = 'default';
+      overlay.classList.remove('hidden');
+      overlay.innerHTML = '화재 위치를 클릭하여 설정하세요<br><span style="font-size:0.8rem;">"화재 배치 모드" 버튼을 먼저 누르세요</span>';
+      statMode.textContent = '대기 중';
+      statMode.style.color = 'var(--text-primary)';
+      statFireCount.textContent = '0';
+      statFireRadius.textContent = '0px';
+      fireCountBadge.style.display = 'none';
+      fireCountBadge.textContent = '0개 배치';
+      progBar.style.width = '0%';
+      progPercent.textContent = '0%';
+      statAvgTime.textContent = '--';
+
+      buildShipLayout();
+      spawnPassengers();
+    }
+
+    // ───── Init ─────
+    buildShipLayout();
+    spawnPassengers();
+    animId = requestAnimationFrame(loop);
+
+  })();
+  </script>
+</body>
+</html>

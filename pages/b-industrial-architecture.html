@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>B. 산업용 아키텍처 재정의 | FireNavi 화이어내비</title>
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="page-wrapper">
+    <!-- NAVIGATION -->
+    <nav class="top-nav">
+      <div class="nav-inner">
+        <a href="../index.html" class="nav-brand">
+          <span class="fire-icon">&#x1F525;</span>
+          <span>FireNavi</span>
+        </a>
+        <ul class="nav-links">
+          <li><a href="../index.html">Dashboard</a></li>
+          <li><a href="./a-technical-formulation.html">A. 기술 수식화</a></li>
+          <li><a href="./b-industrial-architecture.html" class="active">B. 산업 아키텍처</a></li>
+          <li><a href="./c-shipyard-proposal.html">C. 조선소 제안</a></li>
+          <li><a href="./d-insurance-risk-model.html">D. 보험 리스크</a></li>
+          <li><a href="./simulation.html">시뮬레이션</a></li>
+          <li><a href="./risk-map.html">위험지도</a></li>
+          <li><a href="./route-optimizer.html">경로최적화</a></li>
+        </ul>
+        <button class="nav-mobile-toggle">&#9776;</button>
+      </div>
+    </nav>
+
+    <!-- PAGE HEADER -->
+    <section class="container">
+      <div class="page-header">
+        <div class="breadcrumb">
+          <a href="../index.html">Home</a>
+          <span>/</span>
+          <span>B. 산업용 아키텍처 재정의</span>
+        </div>
+        <h1 class="page-title">&#x1F3D7;&#xFE0F; 산업용 아키텍처 재정의</h1>
+        <p class="page-desc">
+          실시간 센서 데이터, BIM/IFC 연동, Edge-Cloud 하이브리드 아키텍처, OpenFOAM CFD 통합, Unity 3D 시각화를 아우르는
+          산업 수준의 시스템 설계 및 배포 전략
+        </p>
+      </div>
+    </section>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+      <div class="container">
+
+        <!-- CORE STATS -->
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="stat-value stat-value--info" data-count="3" data-suffix="-Tier">0-Tier</div>
+            <div class="stat-label">System Architecture</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-value--danger" data-count="100" data-suffix="ms" data-prefix="<"><0ms</div>
+            <div class="stat-label">Edge 응답시간</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-value--warning" data-count="60" data-suffix=" FPS">0 FPS</div>
+            <div class="stat-label">Unity 3D 렌더링</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-value--safe" data-count="99.9" data-suffix="%" data-decimals="1">0%</div>
+            <div class="stat-label">시스템 가용성</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value stat-value--accent" data-count="8" data-suffix="개">0개</div>
+            <div class="stat-label">핵심 컴포넌트</div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 1: 시스템 아키텍처 개요 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="system-architecture">
+          <h2>&#x1F3D7;&#xFE0F; 1. 시스템 아키텍처 개요 (System Architecture Overview)</h2>
+          <p>
+            FireNavi는 <strong>3-Tier Architecture</strong>를 채택하여 센서 데이터 수집부터 최종 사용자 시각화까지의
+            전체 파이프라인을 체계적으로 구성합니다. 각 레이어는 독립적으로 확장 가능하며,
+            장애 격리(Fault Isolation)를 통해 시스템 전체의 가용성을 보장합니다.
+          </p>
+
+          <h3>3-Tier Architecture 구조</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">Edge Layer</div>
+              <div class="flow-step-desc">센서 데이터 수집<br>로컬 추론<br>실시간 전처리</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">Processing Layer</div>
+              <div class="flow-step-desc">AI 추론 서버<br>CFD 엔진<br>경로 최적화</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Presentation Layer</div>
+              <div class="flow-step-desc">Unity 3D<br>Web Dashboard<br>Mobile App</div>
+            </div>
+          </div>
+
+          <h3>End-to-End 데이터 플로우</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-danger);">S</div>
+              <div class="flow-step-title">Sensors</div>
+              <div class="flow-step-desc">IoT / CCTV<br>온도 / 연기감지기</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-navy);">E</div>
+              <div class="flow-step-title">Edge Server</div>
+              <div class="flow-step-desc">데이터 집계<br>로컬 추론</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: linear-gradient(135deg, #805AD5, #B794F4);">P</div>
+              <div class="flow-step-title">Processing</div>
+              <div class="flow-step-desc">AI Inference<br>CFD Engine</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-safe);">U</div>
+              <div class="flow-step-title">UI / UX</div>
+              <div class="flow-step-desc">3D 시각화<br>대피 안내</div>
+            </div>
+          </div>
+
+          <h3>Layer별 구성 요소</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Layer</th>
+                  <th>구성 요소</th>
+                  <th>기술 스택</th>
+                  <th>역할</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell danger-cell">Edge Layer</td>
+                  <td>IoT 센서, CCTV, 온도 센서, 연기 감지기</td>
+                  <td>MQTT, AMQP, Edge GPU</td>
+                  <td>실시간 데이터 수집 및 로컬 추론</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell warning-cell">Processing Layer</td>
+                  <td>AI Inference Server, CFD Engine, Path Optimizer</td>
+                  <td>PyTorch, OpenFOAM, Python</td>
+                  <td>화재 시뮬레이션 및 경로 최적화 연산</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell safe-cell">Presentation Layer</td>
+                  <td>Unity 3D, Web Dashboard, Mobile App</td>
+                  <td>Unity, React, WebSocket</td>
+                  <td>3D 시각화, 대피 안내, 관리 인터페이스</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 2: Edge Computing 구조 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="edge-computing">
+          <h2>&#x1F4E1; 2. Edge Computing 구조 (Edge Computing Structure)</h2>
+          <p>
+            선박 내 Edge Server는 센서 데이터를 실시간으로 수집/집계하고, 로컬 AI 추론을 통해
+            <strong>100ms 이내의 응답 시간</strong>을 보장합니다. 위성 통신 의존도를 최소화하여
+            해상 환경에서도 안정적인 운영이 가능합니다.
+          </p>
+
+          <h3>On-Ship Edge Server 사양</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>항목</th>
+                  <th>Primary Server</th>
+                  <th>Secondary Server (Failover)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">CPU</td>
+                  <td>Intel Xeon W-2295 (18C/36T)</td>
+                  <td>Intel Xeon W-2275 (14C/28T)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">GPU</td>
+                  <td>NVIDIA A4000 (16GB VRAM)</td>
+                  <td>NVIDIA T4 (16GB VRAM)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">RAM</td>
+                  <td>128GB DDR4 ECC</td>
+                  <td>64GB DDR4 ECC</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Storage</td>
+                  <td>2TB NVMe SSD (RAID 1)</td>
+                  <td>1TB NVMe SSD</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Network</td>
+                  <td>10GbE + Ship LAN</td>
+                  <td>10GbE + Ship LAN</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">OS</td>
+                  <td>Ubuntu Server 22.04 LTS</td>
+                  <td>Ubuntu Server 22.04 LTS</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Sensor Data Aggregation Pipeline</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">센서 수집</div>
+              <div class="flow-step-desc">IoT / CCTV<br>온도 / 연기 / 가스</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">MQTT Broker</div>
+              <div class="flow-step-desc">Eclipse Mosquitto<br>Topic 기반 라우팅</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Stream Processor</div>
+              <div class="flow-step-desc">Apache Kafka<br>데이터 정규화</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">Local Inference</div>
+              <div class="flow-step-desc">PyTorch Edge<br>&lt;100ms 추론</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">5</div>
+              <div class="flow-step-title">Alert / Store</div>
+              <div class="flow-step-desc">InfluxDB 저장<br>알림 발송</div>
+            </div>
+          </div>
+
+          <h3>센서 데이터 스키마 (MQTT Payload)</h3>
+          <div class="code-block">
+<span class="comment">// MQTT Topic: firenavi/ship/{ship_id}/sensor/{sensor_id}</span>
+<span class="comment">// QoS Level: 1 (At least once delivery)</span>
+
+{
+  <span class="string">"sensor_id"</span>: <span class="string">"TEMP-D3-R204"</span>,
+  <span class="string">"timestamp"</span>: <span class="string">"2026-02-12T14:30:00.123Z"</span>,
+  <span class="string">"type"</span>: <span class="string">"temperature"</span>,
+  <span class="string">"value"</span>: <span class="number">72.5</span>,
+  <span class="string">"unit"</span>: <span class="string">"celsius"</span>,
+  <span class="string">"location"</span>: {
+    <span class="string">"deck"</span>: <span class="number">3</span>,
+    <span class="string">"zone"</span>: <span class="string">"R204"</span>,
+    <span class="string">"x"</span>: <span class="number">45.2</span>,
+    <span class="string">"y"</span>: <span class="number">12.8</span>,
+    <span class="string">"z"</span>: <span class="number">8.5</span>
+  },
+  <span class="string">"status"</span>: <span class="string">"ALARM"</span>,
+  <span class="string">"confidence"</span>: <span class="number">0.95</span>
+}
+          </div>
+
+          <h3>이중화 및 네트워크 구성</h3>
+          <div class="two-col">
+            <div>
+              <h3>Redundancy: Dual Edge Server</h3>
+              <ul>
+                <li><strong>Active-Standby</strong> 구성으로 자동 Failover 지원</li>
+                <li>Heartbeat 모니터링 (1초 간격)</li>
+                <li>Failover 전환 시간: <strong>5초 이내</strong></li>
+                <li>데이터 동기화: Redis Sentinel 기반 실시간 복제</li>
+                <li>센서 데이터 로컬 버퍼링 (최대 24시간)</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Network 구성</h3>
+              <ul>
+                <li><strong>Primary:</strong> Ship LAN (10GbE Backbone)</li>
+                <li><strong>Backup:</strong> VSAT 위성 통신 (2~4 Mbps)</li>
+                <li>VLAN 분리: 센서망 / 서비스망 / 관리망</li>
+                <li>네트워크 모니터링: SNMP + Prometheus</li>
+                <li>자동 경로 절체: OSPF 프로토콜</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-value stat-value--danger" data-count="500" data-suffix="+">0+</div>
+              <div class="stat-label">설치 센서 수</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--info" data-count="10" data-suffix=" Hz">0 Hz</div>
+              <div class="stat-label">센서 샘플링 레이트</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--warning" data-count="5" data-suffix="초">0초</div>
+              <div class="stat-label">Failover 전환시간</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--safe" data-count="24" data-suffix="시간">0시간</div>
+              <div class="stat-label">로컬 버퍼 용량</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 3: BIM/IFC 연동 시스템 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="bim-ifc">
+          <h2>&#x1F3E2; 3. BIM/IFC 연동 시스템 (BIM/IFC Integration)</h2>
+          <p>
+            선박 설계 데이터(BIM)를 IFC(Industry Foundation Classes) 표준 형식으로 파싱하여
+            대피 경로 최적화에 필요한 <strong>Navigation Graph</strong>를 자동으로 생성합니다.
+            공간(Space)은 노드(Node)로, 출입구(Door/Opening)는 간선(Edge)으로 매핑됩니다.
+          </p>
+
+          <h3>IFC File Parsing Pipeline</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">IFC Import</div>
+              <div class="flow-step-desc">IFC 2x3 / IFC 4<br>파일 로드</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">Entity Parsing</div>
+              <div class="flow-step-desc">IfcSpace<br>IfcDoor 추출</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Geometry Processing</div>
+              <div class="flow-step-desc">좌표 변환<br>경계 계산</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">Graph Generation</div>
+              <div class="flow-step-desc">Node/Edge 생성<br>가중치 산정</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">5</div>
+              <div class="flow-step-title">Floor Plan Export</div>
+              <div class="flow-step-desc">자동 도면 추출<br>Unity 연동</div>
+            </div>
+          </div>
+
+          <h3>IFC to Navigation Graph 변환</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>IFC Entity</th>
+                  <th>Graph Element</th>
+                  <th>속성 매핑</th>
+                  <th>예시</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">IfcSpace</td>
+                  <td>Node (V)</td>
+                  <td>면적, 수용인원, 위치, 덱번호</td>
+                  <td>Cabin-D3-204, Corridor-D3-Main</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">IfcDoor</td>
+                  <td>Edge (E)</td>
+                  <td>폭, 높이, 개폐상태, 방화문여부</td>
+                  <td>Door-D3-204-Corridor</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">IfcStair</td>
+                  <td>Edge (E, vertical)</td>
+                  <td>폭, 경사도, 연결 덱</td>
+                  <td>Stair-D3-D4-Fwd</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">IfcSpace (Assembly)</td>
+                  <td>Node (Terminal)</td>
+                  <td>최대수용, 구명보트 접근성</td>
+                  <td>MusterStation-A, MusterStation-B</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Graph 자료구조 정의</h3>
+          <div class="formula-block">
+            <div class="formula-label">Navigation Graph</div>
+            <div class="math">
+              G = (V, E)
+            </div>
+            <br>
+            <code>V = {rooms, corridors, stairs, muster_stations}</code><br>
+            <code>E = {doors, openings, stairways, elevators}</code><br>
+            <br>
+            <div class="math">
+              w(e) = &alpha; &middot; distance(e) + &beta; &middot; risk_penalty(e) + &gamma; &middot; congestion_factor(e)
+            </div>
+            <br>
+            <code>&alpha; = 1.0 (기본 거리 가중치)</code><br>
+            <code>&beta; = dynamic (실시간 위험도 반영, 0~10)</code><br>
+            <code>&gamma; = dynamic (혼잡도 반영, 0~5)</code>
+          </div>
+
+          <h3>IFC Parser - Python 코드</h3>
+          <div class="code-block">
+<span class="keyword">import</span> ifcopenshell
+<span class="keyword">import</span> networkx <span class="keyword">as</span> nx
+<span class="keyword">from</span> typing <span class="keyword">import</span> Dict, List, Tuple
+
+<span class="keyword">class</span> <span class="function">IFCNavigationParser</span>:
+    <span class="string">"""IFC 파일에서 Navigation Graph를 자동 생성하는 파서"""</span>
+
+    <span class="keyword">def</span> <span class="function">__init__</span>(self, ifc_path: str):
+        self.model = ifcopenshell.open(ifc_path)
+        self.graph = nx.Graph()
+        self.spaces: Dict[str, dict] = {}
+        self.doors: List[dict] = []
+
+    <span class="keyword">def</span> <span class="function">parse_spaces</span>(self) -> Dict[str, dict]:
+        <span class="string">"""IfcSpace 엔티티를 Node로 변환"""</span>
+        <span class="keyword">for</span> space <span class="keyword">in</span> self.model.by_type(<span class="string">"IfcSpace"</span>):
+            node_id = space.GlobalId
+            centroid = self.<span class="function">_get_centroid</span>(space)
+            self.graph.add_node(node_id, **{
+                <span class="string">"name"</span>: space.LongName <span class="keyword">or</span> space.Name,
+                <span class="string">"deck"</span>: self.<span class="function">_extract_deck</span>(space),
+                <span class="string">"area"</span>: self.<span class="function">_calc_area</span>(space),
+                <span class="string">"capacity"</span>: self.<span class="function">_estimate_capacity</span>(space),
+                <span class="string">"position"</span>: centroid,
+                <span class="string">"type"</span>: self.<span class="function">_classify_space</span>(space),
+            })
+        <span class="keyword">return</span> self.spaces
+
+    <span class="keyword">def</span> <span class="function">parse_connections</span>(self) -> List[Tuple]:
+        <span class="string">"""IfcDoor/IfcOpening을 Edge로 변환"""</span>
+        <span class="keyword">for</span> door <span class="keyword">in</span> self.model.by_type(<span class="string">"IfcDoor"</span>):
+            spaces = self.<span class="function">_find_adjacent_spaces</span>(door)
+            <span class="keyword">if</span> len(spaces) == <span class="number">2</span>:
+                weight = self.<span class="function">_calc_edge_weight</span>(
+                    spaces[<span class="number">0</span>], spaces[<span class="number">1</span>], door
+                )
+                self.graph.add_edge(
+                    spaces[<span class="number">0</span>], spaces[<span class="number">1</span>],
+                    weight=weight,
+                    door_id=door.GlobalId,
+                    width=door.OverallWidth,
+                    is_fire_door=self.<span class="function">_is_fire_door</span>(door)
+                )
+        <span class="keyword">return</span> list(self.graph.edges(data=<span class="keyword">True</span>))
+
+    <span class="keyword">def</span> <span class="function">_calc_edge_weight</span>(self, src, dst, door) -> float:
+        <span class="string">"""w(e) = a*distance + b*risk_penalty + g*congestion"""</span>
+        dist = self.<span class="function">_euclidean_dist</span>(src, dst)
+        risk = self.<span class="function">_get_risk_penalty</span>(src, dst)
+        congestion = self.<span class="function">_get_congestion</span>(src, dst)
+        <span class="keyword">return</span> <span class="number">1.0</span> * dist + risk + congestion
+
+    <span class="keyword">def</span> <span class="function">build_navigation_graph</span>(self) -> nx.Graph:
+        <span class="string">"""전체 Navigation Graph 생성"""</span>
+        self.<span class="function">parse_spaces</span>()
+        self.<span class="function">parse_connections</span>()
+        self.<span class="function">_add_stairways</span>()
+        self.<span class="function">_add_elevators</span>()
+        <span class="keyword">return</span> self.graph
+
+<span class="comment"># 사용 예시</span>
+parser = <span class="function">IFCNavigationParser</span>(<span class="string">"ship_model.ifc"</span>)
+nav_graph = parser.<span class="function">build_navigation_graph</span>()
+<span class="keyword">print</span>(f<span class="string">"Nodes: {nav_graph.number_of_nodes()}"</span>)
+<span class="keyword">print</span>(f<span class="string">"Edges: {nav_graph.number_of_edges()}"</span>)
+          </div>
+
+          <h3>자동 Floor Plan 추출</h3>
+          <p>
+            IFC 모델로부터 각 Deck별 평면도를 자동으로 추출하여 Unity 3D 환경에 로드합니다.
+            벽체, 복도, 출입구, 계단 등의 건축 요소를 그래픽 요소로 변환하며,
+            실시간 위험도에 따라 색상 코딩을 적용합니다.
+          </p>
+          <ul>
+            <li>IfcWall / IfcWallStandardCase &rarr; 벽체 메시 생성</li>
+            <li>IfcSlab &rarr; 바닥/천장 평면 생성</li>
+            <li>IfcDoor &rarr; 출입구 인터랙티브 오브젝트</li>
+            <li>IfcStair &rarr; 수직 연결 통로 표시</li>
+            <li>자동 LOD (Level of Detail) 적용으로 렌더링 최적화</li>
+          </ul>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 4: OpenFOAM CFD 통합 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="openfoam-cfd">
+          <h2>&#x1F525; 4. OpenFOAM CFD 통합 (OpenFOAM CFD Integration)</h2>
+          <p>
+            OpenFOAM(Open Source Field Operation and Manipulation)을 활용하여 선박 내부의 화재 시뮬레이션을 수행합니다.
+            화재 발생 시 연기 확산, 온도 분포, 가스 농도 등을 사전 계산하여
+            <strong>Scenario Library</strong>를 구축하고, 실시간 시나리오 매칭을 통해 즉각적인 위험 예측을 제공합니다.
+          </p>
+
+          <h3>Fire Simulation Case 파일 구조</h3>
+          <div class="code-block">
+<span class="comment"># OpenFOAM Case Directory Structure</span>
+fireNavi_case/
+  +-- 0/                        <span class="comment"># Initial conditions</span>
+  |   +-- T                     <span class="comment"># Temperature field</span>
+  |   +-- U                     <span class="comment"># Velocity field</span>
+  |   +-- p                     <span class="comment"># Pressure field</span>
+  |   +-- k                     <span class="comment"># Turbulent kinetic energy</span>
+  |   +-- epsilon               <span class="comment"># Turbulent dissipation rate</span>
+  |   +-- CO2                   <span class="comment"># CO2 concentration</span>
+  |   +-- soot                  <span class="comment"># Soot concentration</span>
+  +-- constant/                 <span class="comment"># Physical properties</span>
+  |   +-- transportProperties
+  |   +-- turbulenceProperties  <span class="comment"># k-epsilon model</span>
+  |   +-- combustionProperties
+  |   +-- polyMesh/             <span class="comment"># Ship mesh</span>
+  +-- system/                   <span class="comment"># Solver settings</span>
+      +-- controlDict
+      +-- fvSchemes
+      +-- fvSolution
+      +-- blockMeshDict         <span class="comment"># Mesh generation</span>
+      +-- decomposeParDict      <span class="comment"># Parallel decomposition</span>
+          </div>
+
+          <h3>blockMeshDict - 선박 구획 메시 구성</h3>
+          <div class="code-block">
+<span class="comment">// system/blockMeshDict</span>
+<span class="comment">// Ship compartment mesh configuration</span>
+
+FoamFile
+{
+    version     <span class="number">2.0</span>;
+    format      ascii;
+    class       dictionary;
+    object      blockMeshDict;
+}
+
+convertToMeters <span class="number">1</span>;
+
+vertices
+(
+    (<span class="number">0</span>    <span class="number">0</span>    <span class="number">0</span>)       <span class="comment">// vertex 0: origin</span>
+    (<span class="number">60</span>   <span class="number">0</span>    <span class="number">0</span>)       <span class="comment">// vertex 1: ship length</span>
+    (<span class="number">60</span>   <span class="number">30</span>   <span class="number">0</span>)       <span class="comment">// vertex 2: ship width</span>
+    (<span class="number">0</span>    <span class="number">30</span>   <span class="number">0</span>)       <span class="comment">// vertex 3</span>
+    (<span class="number">0</span>    <span class="number">0</span>    <span class="number">3</span>)       <span class="comment">// vertex 4: deck height</span>
+    (<span class="number">60</span>   <span class="number">0</span>    <span class="number">3</span>)       <span class="comment">// vertex 5</span>
+    (<span class="number">60</span>   <span class="number">30</span>   <span class="number">3</span>)       <span class="comment">// vertex 6</span>
+    (<span class="number">0</span>    <span class="number">30</span>   <span class="number">3</span>)       <span class="comment">// vertex 7</span>
+);
+
+blocks
+(
+    hex (<span class="number">0 1 2 3 4 5 6 7</span>)
+    (<span class="number">120 60 6</span>)              <span class="comment">// cells: 0.5m resolution</span>
+    simpleGrading (<span class="number">1 1 1</span>)
+);
+
+boundary
+(
+    walls
+    {
+        type wall;
+        faces ((<span class="number">0 3 7 4</span>) (<span class="number">1 2 6 5</span>));
+    }
+    deck_floor
+    {
+        type wall;
+        faces ((<span class="number">0 1 2 3</span>));
+    }
+    deck_ceiling
+    {
+        type wall;
+        faces ((<span class="number">4 5 6 7</span>));
+    }
+    ventilation_inlet
+    {
+        type patch;
+        faces ((<span class="number">0 1 5 4</span>));
+    }
+    ventilation_outlet
+    {
+        type patch;
+        faces ((<span class="number">2 3 7 6</span>));
+    }
+);
+          </div>
+
+          <h3>turbulenceProperties: k-epsilon 모델</h3>
+          <div class="code-block">
+<span class="comment">// constant/turbulenceProperties</span>
+
+FoamFile
+{
+    version     <span class="number">2.0</span>;
+    format      ascii;
+    class       dictionary;
+    object      turbulenceProperties;
+}
+
+simulationType  RAS;
+
+RAS
+{
+    RASModel        <span class="function">kEpsilon</span>;
+    turbulence      on;
+    printCoeffs     on;
+
+    kEpsilonCoeffs
+    {
+        Cmu         <span class="number">0.09</span>;
+        C1          <span class="number">1.44</span>;
+        C2          <span class="number">1.92</span>;
+        sigmaK      <span class="number">1.0</span>;
+        sigmaEps    <span class="number">1.3</span>;
+    }
+}
+          </div>
+
+          <h3>Boundary Conditions 요약</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>경계면</th>
+                  <th>온도 (T)</th>
+                  <th>속도 (U)</th>
+                  <th>설명</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell danger-cell">Fire Source</td>
+                  <td>fixedValue (800~1200K)</td>
+                  <td>fixedValue (plume model)</td>
+                  <td>화재 발생 위치 - HRR 기반 열원</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Walls</td>
+                  <td>zeroGradient</td>
+                  <td>noSlip</td>
+                  <td>단열 벽면 (adiabatic wall)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell safe-cell">Ventilation Inlet</td>
+                  <td>fixedValue (293K)</td>
+                  <td>fixedValue (0.5 m/s)</td>
+                  <td>HVAC 급기구</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell warning-cell">Ventilation Outlet</td>
+                  <td>inletOutlet</td>
+                  <td>pressureInletOutletVelocity</td>
+                  <td>HVAC 배기구</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Deck Floor / Ceiling</td>
+                  <td>zeroGradient</td>
+                  <td>noSlip</td>
+                  <td>바닥/천장 경계</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Post-Processing Pipeline</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-danger);">1</div>
+              <div class="flow-step-title">OpenFOAM</div>
+              <div class="flow-step-desc">CFD 시뮬레이션<br>T, U, CO2, soot</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">ParaView</div>
+              <div class="flow-step-desc">필드 데이터 추출<br>시간별 슬라이스</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Python</div>
+              <div class="flow-step-desc">데이터 정규화<br>Risk Score 산정</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-safe);">4</div>
+              <div class="flow-step-title">Risk Map</div>
+              <div class="flow-step-desc">동적 위험지도<br>UI 렌더링</div>
+            </div>
+          </div>
+
+          <h3>Real-time vs Pre-computed 전략</h3>
+          <div class="two-col">
+            <div>
+              <h3>Pre-computed Scenario Library</h3>
+              <ul>
+                <li>화재 위치별 시나리오 사전 계산 (<strong>200+ 시나리오</strong>)</li>
+                <li>각 시나리오: 시간 단계별 온도/연기/가스 분포</li>
+                <li>HVAC 상태별 (가동/정지/부분가동) 변형 포함</li>
+                <li>선박 건조 시 1회 계산, 이후 DB 저장</li>
+                <li>시나리오 매칭 시간: <strong>&lt;1초</strong></li>
+              </ul>
+            </div>
+            <div>
+              <h3>Real-time CFD (보정용)</h3>
+              <ul>
+                <li>실제 센서 데이터 기반 보정 시뮬레이션</li>
+                <li>Coarse mesh로 빠른 근사 계산</li>
+                <li>GPU 가속 (CUDA) 적용</li>
+                <li>계산 시간: <strong>30~60초</strong> (보정 사이클)</li>
+                <li>Pre-computed 시나리오와 블렌딩</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 5: Unity 3D 시각화 엔진 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="unity-3d">
+          <h2>&#x1F3AE; 5. Unity 3D 시각화 엔진 (Unity 3D Visualization Engine)</h2>
+          <p>
+            Unity 3D를 활용하여 선박 내부의 화재 상황, 연기 확산, 승객 이동을 실시간 3D로 시각화합니다.
+            WebSocket 통신을 통해 Python 백엔드와 연동하며, BIM 데이터를 자동으로 로드하여
+            현실적인 선박 환경을 재현합니다.
+          </p>
+
+          <h3>Real-time Rendering Pipeline</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">Data Ingestion</div>
+              <div class="flow-step-desc">WebSocket 수신<br>JSON 파싱</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">Scene Update</div>
+              <div class="flow-step-desc">Agent 위치 갱신<br>Fire/Smoke 업데이트</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Render</div>
+              <div class="flow-step-desc">URP Pipeline<br>60 FPS 렌더링</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">Display</div>
+              <div class="flow-step-desc">Bridge Monitor<br>VR Headset</div>
+            </div>
+          </div>
+
+          <h3>WebSocket 통신 프로토콜</h3>
+          <p>
+            Python 서버와 Unity 클라이언트 간 WebSocket을 통해 실시간 양방향 통신을 수행합니다.
+            데이터는 JSON 형식으로 전송되며, 초당 10~30회 업데이트됩니다.
+          </p>
+          <div class="code-block">
+<span class="comment">// WebSocket Data Protocol</span>
+<span class="comment">// Python Server -> Unity Client (ws://edge-server:8765/firenavi)</span>
+<span class="comment">// Update Frequency: 10~30 Hz</span>
+
+{
+  <span class="string">"timestamp"</span>: <span class="string">"2026-02-12T14:30:05.123Z"</span>,
+  <span class="string">"frame_id"</span>: <span class="number">15230</span>,
+
+  <span class="string">"agents"</span>: [
+    {
+      <span class="string">"id"</span>: <span class="string">"PAX-001"</span>,
+      <span class="string">"position"</span>: {<span class="string">"x"</span>: <span class="number">23.5</span>, <span class="string">"y"</span>: <span class="number">8.5</span>, <span class="string">"z"</span>: <span class="number">1.7</span>},
+      <span class="string">"rotation"</span>: <span class="number">135.0</span>,
+      <span class="string">"speed"</span>: <span class="number">1.2</span>,
+      <span class="string">"status"</span>: <span class="string">"evacuating"</span>,
+      <span class="string">"health_class"</span>: <span class="string">"normal"</span>,
+      <span class="string">"target_exit"</span>: <span class="string">"MS-A"</span>,
+      <span class="string">"path"</span>: [[<span class="number">23.5</span>,<span class="number">8.5</span>], [<span class="number">20.0</span>,<span class="number">8.5</span>], [<span class="number">15.0</span>,<span class="number">12.0</span>]]
+    }
+  ],
+
+  <span class="string">"fire"</span>: {
+    <span class="string">"origin"</span>: {<span class="string">"x"</span>: <span class="number">40.2</span>, <span class="string">"y"</span>: <span class="number">8.5</span>, <span class="string">"z"</span>: <span class="number">0.0</span>},
+    <span class="string">"radius"</span>: <span class="number">5.8</span>,
+    <span class="string">"intensity"</span>: <span class="number">0.85</span>,
+    <span class="string">"hrr_kw"</span>: <span class="number">2500</span>,
+    <span class="string">"affected_zones"</span>: [<span class="string">"R204"</span>, <span class="string">"R205"</span>, <span class="string">"CORR-D3-C"</span>]
+  },
+
+  <span class="string">"smoke"</span>: {
+    <span class="string">"density_map"</span>: [[<span class="number">0.1</span>, <span class="number">0.3</span>, <span class="number">0.8</span>], [<span class="number">0.2</span>, <span class="number">0.5</span>, <span class="number">0.9</span>]],
+    <span class="string">"visibility_m"</span>: <span class="number">3.2</span>,
+    <span class="string">"layer_height"</span>: <span class="number">1.8</span>
+  },
+
+  <span class="string">"risk_map"</span>: [
+    {<span class="string">"zone"</span>: <span class="string">"R204"</span>, <span class="string">"level"</span>: <span class="number">0.95</span>, <span class="string">"category"</span>: <span class="string">"critical"</span>},
+    {<span class="string">"zone"</span>: <span class="string">"CORR-D3"</span>, <span class="string">"level"</span>: <span class="number">0.65</span>, <span class="string">"category"</span>: <span class="string">"high"</span>},
+    {<span class="string">"zone"</span>: <span class="string">"R201"</span>, <span class="string">"level"</span>: <span class="number">0.20</span>, <span class="string">"category"</span>: <span class="string">"low"</span>}
+  ]
+}
+          </div>
+
+          <h3>핵심 시각화 컴포넌트</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>컴포넌트</th>
+                  <th>Unity 기술</th>
+                  <th>데이터 소스</th>
+                  <th>업데이트 주기</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">BIM 자동 로딩</td>
+                  <td>IFC Importer + Mesh Generator</td>
+                  <td>IFC 파일 (빌드 시)</td>
+                  <td>초기 1회</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell danger-cell">화재 시각화</td>
+                  <td>VFX Graph Particle System</td>
+                  <td>fire.origin, fire.intensity</td>
+                  <td>10 Hz</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell warning-cell">연기 시각화</td>
+                  <td>Volumetric Fog + Shader Graph</td>
+                  <td>smoke.density_map</td>
+                  <td>10 Hz</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell safe-cell">에이전트 이동</td>
+                  <td>NavMesh Agent + Animation</td>
+                  <td>agents[].position, path</td>
+                  <td>30 Hz</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">위험지도 오버레이</td>
+                  <td>Custom Shader (Heatmap)</td>
+                  <td>risk_map[].level</td>
+                  <td>10 Hz</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">경로 표시</td>
+                  <td>Line Renderer + Arrow Mesh</td>
+                  <td>agents[].path</td>
+                  <td>10 Hz</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>VR Training Mode</h3>
+          <p>
+            Unity의 XR Interaction Toolkit을 활용하여 VR 기반 대피 훈련 모드를 제공합니다.
+            승무원은 가상 선박 환경에서 화재 대피 시나리오를 체험하고,
+            실제 상황에서의 대응 능력을 사전에 훈련할 수 있습니다.
+          </p>
+          <ul>
+            <li><strong>지원 디바이스:</strong> Meta Quest 3, HTC Vive Pro 2, Varjo XR-4</li>
+            <li><strong>훈련 시나리오:</strong> 화재 발견, 초기 대응, 승객 안내, 구명보트 탑승</li>
+            <li><strong>평가 항목:</strong> 대응 시간, 올바른 경로 선택, 의사소통 정확도</li>
+            <li><strong>리플레이:</strong> 훈련 기록 저장 및 3D 리플레이 지원</li>
+          </ul>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 6: 데이터 파이프라인 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="data-pipeline">
+          <h2>&#x1F4CA; 6. 데이터 파이프라인 (Data Pipeline)</h2>
+          <p>
+            FireNavi의 데이터 파이프라인은 <strong>실시간 스트리밍</strong>과 <strong>배치 처리</strong>의 이중 구조로 구성됩니다.
+            센서 데이터는 MQTT를 통해 실시간으로 수집되고, BIM 데이터와 사전 계산 시나리오는 배치로 처리됩니다.
+          </p>
+
+          <h3>실시간 스트리밍 파이프라인</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-danger);">1</div>
+              <div class="flow-step-title">Sensors</div>
+              <div class="flow-step-desc">IoT / CCTV<br>500+ 디바이스</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">MQTT Broker</div>
+              <div class="flow-step-desc">Eclipse Mosquitto<br>QoS 1</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Edge Server</div>
+              <div class="flow-step-desc">데이터 집계<br>이상 탐지</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">AI Engine</div>
+              <div class="flow-step-desc">위험도 산정<br>경로 최적화</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num" style="background: var(--gradient-safe);">5</div>
+              <div class="flow-step-title">UI / Alert</div>
+              <div class="flow-step-desc">Unity 3D<br>PA / Mobile</div>
+            </div>
+          </div>
+
+          <h3>배치 처리 파이프라인</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num">A</div>
+              <div class="flow-step-title">BIM Data</div>
+              <div class="flow-step-desc">IFC 파일<br>선박 설계 데이터</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">B</div>
+              <div class="flow-step-title">IFC Parser</div>
+              <div class="flow-step-desc">공간 분석<br>그래프 생성</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">C</div>
+              <div class="flow-step-title">CFD Pre-compute</div>
+              <div class="flow-step-desc">OpenFOAM<br>시나리오 계산</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">D</div>
+              <div class="flow-step-title">Scenario DB</div>
+              <div class="flow-step-desc">결과 저장<br>인덱싱</div>
+            </div>
+          </div>
+
+          <h3>데이터 저장소 구성</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>저장소</th>
+                  <th>기술</th>
+                  <th>용도</th>
+                  <th>데이터 보존</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">Time-series DB</td>
+                  <td>InfluxDB 2.x</td>
+                  <td>센서 데이터 (온도, 연기, 가스 농도)</td>
+                  <td>30일 (로컬), 1년 (클라우드)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Graph DB</td>
+                  <td>Neo4j 5.x</td>
+                  <td>선박 레이아웃, Navigation Graph</td>
+                  <td>영구 저장</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Scenario DB</td>
+                  <td>PostgreSQL + TimescaleDB</td>
+                  <td>CFD 시뮬레이션 결과, 시나리오 라이브러리</td>
+                  <td>영구 저장</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Cache</td>
+                  <td>Redis 7.x</td>
+                  <td>실시간 상태, 세션, 센서 최신값</td>
+                  <td>In-memory (TTL 기반)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Object Store</td>
+                  <td>MinIO (S3 호환)</td>
+                  <td>IFC 파일, 훈련 기록, 로그 아카이브</td>
+                  <td>영구 저장</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>데이터 플로우 다이어그램</h3>
+          <div class="code-block">
+<span class="comment"># FireNavi Data Flow Architecture</span>
+<span class="comment"># ================================</span>
+
+<span class="string">[Sensors]</span> ─── MQTT ───> <span class="string">[Mosquitto Broker]</span>
+                                    |
+                       ┌────────────┼────────────┐
+                       v            v            v
+              <span class="string">[InfluxDB]</span>    <span class="string">[Edge AI]</span>    <span class="string">[Kafka]</span>
+              (time-series)  (inference)   (stream)
+                                    |            |
+                                    v            v
+                             <span class="string">[Risk Engine]</span>  <span class="string">[Log Archive]</span>
+                                    |
+                       ┌────────────┼────────────┐
+                       v            v            v
+               <span class="string">[WebSocket]</span>   <span class="string">[REST API]</span>   <span class="string">[Alert System]</span>
+                    |            |            |
+                    v            v            v
+             <span class="string">[Unity 3D]</span>   <span class="string">[Web UI]</span>   <span class="string">[PA/Mobile/Display]</span>
+
+<span class="comment"># Batch Pipeline</span>
+<span class="string">[IFC Files]</span> ──> <span class="string">[IFC Parser]</span> ──> <span class="string">[Neo4j]</span> (Navigation Graph)
+<span class="string">[OpenFOAM]</span>  ──> <span class="string">[Post-Proc]</span>  ──> <span class="string">[PostgreSQL]</span> (Scenario Library)
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 7: 배포 및 운영 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="deployment">
+          <h2>&#x1F680; 7. 배포 및 운영 (Deployment &amp; Operations)</h2>
+          <p>
+            FireNavi는 Docker 컨테이너와 Kubernetes 오케스트레이션을 통해 선박 내 Edge Server에 배포됩니다.
+            Prometheus + Grafana 기반 모니터링과 다채널 알림 시스템을 통해 24/7 안정적인 운영을 보장합니다.
+          </p>
+
+          <h3>Docker 컨테이너 구성</h3>
+          <div class="code-block">
+<span class="comment"># docker-compose.yml - FireNavi Stack</span>
+
+version: <span class="string">"3.9"</span>
+
+services:
+  <span class="function">mosquitto</span>:
+    image: eclipse-mosquitto:<span class="number">2.0</span>
+    ports: [<span class="string">"1883:1883"</span>, <span class="string">"9001:9001"</span>]
+    volumes: [<span class="string">"./mosquitto:/mosquitto/config"</span>]
+
+  <span class="function">influxdb</span>:
+    image: influxdb:<span class="number">2.7</span>
+    ports: [<span class="string">"8086:8086"</span>]
+    volumes: [<span class="string">"influx_data:/var/lib/influxdb2"</span>]
+
+  <span class="function">neo4j</span>:
+    image: neo4j:<span class="number">5.15</span>
+    ports: [<span class="string">"7474:7474"</span>, <span class="string">"7687:7687"</span>]
+    volumes: [<span class="string">"neo4j_data:/data"</span>]
+
+  <span class="function">redis</span>:
+    image: redis:<span class="number">7.2</span>-alpine
+    ports: [<span class="string">"6379:6379"</span>]
+
+  <span class="function">firenavi-edge</span>:
+    build: ./services/edge-processor
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    depends_on: [mosquitto, influxdb, redis]
+
+  <span class="function">firenavi-ai</span>:
+    build: ./services/ai-engine
+    runtime: nvidia
+    depends_on: [firenavi-edge, neo4j]
+
+  <span class="function">firenavi-api</span>:
+    build: ./services/api-server
+    ports: [<span class="string">"8000:8000"</span>]
+    depends_on: [firenavi-ai, influxdb, neo4j]
+
+  <span class="function">firenavi-ws</span>:
+    build: ./services/websocket-server
+    ports: [<span class="string">"8765:8765"</span>]
+    depends_on: [firenavi-ai]
+
+  <span class="function">prometheus</span>:
+    image: prom/prometheus:latest
+    ports: [<span class="string">"9090:9090"</span>]
+    volumes: [<span class="string">"./prometheus:/etc/prometheus"</span>]
+
+  <span class="function">grafana</span>:
+    image: grafana/grafana:latest
+    ports: [<span class="string">"3000:3000"</span>]
+    depends_on: [prometheus]
+          </div>
+
+          <h3>Kubernetes 오케스트레이션</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>서비스</th>
+                  <th>Replicas</th>
+                  <th>Resource Limits</th>
+                  <th>Health Check</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">firenavi-edge</td>
+                  <td>2 (Active-Standby)</td>
+                  <td>4 CPU, 8GB RAM, 1 GPU</td>
+                  <td>/health (5s interval)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">firenavi-ai</td>
+                  <td>2 (Load Balanced)</td>
+                  <td>8 CPU, 16GB RAM, 1 GPU</td>
+                  <td>/health (10s interval)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">firenavi-api</td>
+                  <td>3 (Load Balanced)</td>
+                  <td>2 CPU, 4GB RAM</td>
+                  <td>/health (5s interval)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">firenavi-ws</td>
+                  <td>2 (Load Balanced)</td>
+                  <td>2 CPU, 4GB RAM</td>
+                  <td>WebSocket ping (10s)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">mosquitto</td>
+                  <td>2 (Clustered)</td>
+                  <td>1 CPU, 2GB RAM</td>
+                  <td>TCP 1883 (5s)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>모니터링: Prometheus + Grafana</h3>
+          <p>
+            시스템의 모든 컴포넌트는 Prometheus 메트릭을 노출하며, Grafana 대시보드를 통해
+            실시간으로 모니터링됩니다. 사전 정의된 경고 규칙을 통해 이상 상황을 즉시 감지합니다.
+          </p>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-value stat-value--info" data-count="50" data-suffix="+">0+</div>
+              <div class="stat-label">모니터링 메트릭</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--danger" data-count="15" data-suffix="개">0개</div>
+              <div class="stat-label">알림 규칙</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--safe" data-count="5" data-suffix="초">0초</div>
+              <div class="stat-label">수집 주기</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--warning" data-count="30" data-suffix="일">0일</div>
+              <div class="stat-label">메트릭 보존</div>
+            </div>
+          </div>
+
+          <h3>다채널 알림 시스템 (Alert System)</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>채널</th>
+                  <th>대상</th>
+                  <th>지연시간</th>
+                  <th>내용</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell danger-cell">PA 방송 (Public Address)</td>
+                  <td>전체 승객 + 승무원</td>
+                  <td>&lt;2초</td>
+                  <td>화재 위치, 대피 방향, 집결지 안내</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell warning-cell">모바일 앱 Push</td>
+                  <td>개인별 승객</td>
+                  <td>&lt;3초</td>
+                  <td>개인 맞춤 대피 경로, 턴바이턴 안내</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Deck Display</td>
+                  <td>구역별 승객</td>
+                  <td>&lt;2초</td>
+                  <td>동적 대피 경로 표시, 구역 위험도</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell safe-cell">Bridge Console</td>
+                  <td>선장 / 항해사</td>
+                  <td>&lt;1초</td>
+                  <td>전체 상황 개요, 대피 진행률</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Crew Headset</td>
+                  <td>대피 담당 승무원</td>
+                  <td>&lt;2초</td>
+                  <td>담당 구역 상황, 도움 필요 승객 위치</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>Drill Mode vs Emergency Mode</h3>
+          <div class="two-col">
+            <div>
+              <h3>Drill Mode (훈련 모드)</h3>
+              <ul>
+                <li>시뮬레이션 기반 가상 화재 시나리오</li>
+                <li>실제 센서 데이터 사용하지 않음</li>
+                <li>PA 방송: "THIS IS A DRILL" 접두사</li>
+                <li>훈련 결과 기록 및 분석 리포트 생성</li>
+                <li>IMO SOLAS 규정 주간 훈련 대응</li>
+                <li>VR 훈련 모드와 연동 가능</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Emergency Mode (비상 모드)</h3>
+              <ul>
+                <li>실제 센서 데이터 기반 실시간 분석</li>
+                <li>모든 알림 채널 동시 활성화</li>
+                <li>PA 방송: 긴급 대피 안내 자동 송출</li>
+                <li>EPIRB/SART 연동 가능</li>
+                <li>블랙박스 기록 자동 시작</li>
+                <li>외부 기관 (해경, 보험사) 자동 통보</li>
+              </ul>
+            </div>
+          </div>
+
+          <h3>시스템 건강 모니터링 항목</h3>
+          <ul>
+            <li><strong>CPU/GPU 사용률:</strong> 임계값 80% 초과 시 경고</li>
+            <li><strong>메모리 사용률:</strong> 임계값 85% 초과 시 경고</li>
+            <li><strong>센서 연결 상태:</strong> 미응답 센서 5% 초과 시 경고</li>
+            <li><strong>네트워크 지연:</strong> Edge-Server 간 100ms 초과 시 경고</li>
+            <li><strong>디스크 사용률:</strong> 90% 초과 시 로그 자동 정리</li>
+            <li><strong>서비스 Health Check:</strong> 3회 연속 실패 시 자동 재시작</li>
+          </ul>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- SECTION 8: 보안 및 인증 -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="security">
+          <h2>&#x1F512; 8. 보안 및 인증 (Security &amp; Certification)</h2>
+          <p>
+            해양 사이버보안 국제 기준을 준수하며, 네트워크 분리, 데이터 암호화, 역할 기반 접근 제어를 통해
+            시스템의 무결성과 가용성을 보장합니다. DNV GL 사이버보안 인증 획득을 목표로 설계되었습니다.
+          </p>
+
+          <h3>Maritime Cybersecurity 준수 기준</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>기준/규정</th>
+                  <th>발행 기관</th>
+                  <th>적용 범위</th>
+                  <th>준수 상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">IMO MSC-FAL.1/Circ.3</td>
+                  <td>IMO (국제해사기구)</td>
+                  <td>해양 사이버 위험관리 가이드라인</td>
+                  <td class="safe-cell">준수</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">IACS UR E26/E27</td>
+                  <td>IACS</td>
+                  <td>선박 사이버 복원력 요구사항</td>
+                  <td class="safe-cell">준수</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">IEC 62443</td>
+                  <td>IEC</td>
+                  <td>산업 자동화 보안 표준</td>
+                  <td class="safe-cell">준수</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">NIST Cybersecurity Framework</td>
+                  <td>NIST</td>
+                  <td>사이버보안 관리 프레임워크</td>
+                  <td class="safe-cell">준수</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">DNV GL Cyber Security</td>
+                  <td>DNV GL</td>
+                  <td>선급 사이버보안 인증</td>
+                  <td class="warning-cell">인증 진행중</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>네트워크 분리 (Network Segmentation)</h3>
+          <div class="code-block">
+<span class="comment"># FireNavi Network Segmentation</span>
+<span class="comment"># ================================</span>
+
+<span class="string">VLAN 10</span> - <span class="function">Sensor Network</span> (센서 전용망)
+  ├── IoT Sensors (온도, 연기, 가스)
+  ├── CCTV Cameras
+  └── Edge Gateway
+  <span class="comment">  # Firewall: Inbound only to Edge Server</span>
+
+<span class="string">VLAN 20</span> - <span class="function">Processing Network</span> (처리 전용망)
+  ├── Edge Server (Primary / Secondary)
+  ├── AI Inference Server
+  └── Database Servers
+  <span class="comment">  # Firewall: VLAN 10 -> 20 (sensor data only)</span>
+
+<span class="string">VLAN 30</span> - <span class="function">Service Network</span> (서비스망)
+  ├── API Server
+  ├── WebSocket Server
+  └── Web Dashboard
+  <span class="comment">  # Firewall: VLAN 20 -> 30 (API calls only)</span>
+
+<span class="string">VLAN 40</span> - <span class="function">Management Network</span> (관리망)
+  ├── Prometheus / Grafana
+  ├── Log Aggregator
+  └── Admin Console
+  <span class="comment">  # Firewall: Admin access only (802.1X auth)</span>
+
+<span class="string">VLAN 50</span> - <span class="function">Guest Network</span> (승객망)
+  ├── Passenger Mobile App
+  └── Deck Display
+  <span class="comment">  # Firewall: Read-only access to Service Network</span>
+          </div>
+
+          <h3>데이터 암호화 (Data Encryption)</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>구간</th>
+                  <th>프로토콜</th>
+                  <th>암호화 방식</th>
+                  <th>키 관리</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">전송 중 (In-transit)</td>
+                  <td>TLS 1.3</td>
+                  <td>AES-256-GCM / ChaCha20-Poly1305</td>
+                  <td>자동 인증서 갱신 (Let's Encrypt)</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">저장 중 (At-rest)</td>
+                  <td>LUKS / dm-crypt</td>
+                  <td>AES-256-XTS</td>
+                  <td>TPM 2.0 기반 키 저장</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">MQTT</td>
+                  <td>MQTT over TLS</td>
+                  <td>TLS 1.3 + Client Certificate</td>
+                  <td>센서별 개별 인증서</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">WebSocket</td>
+                  <td>WSS (WebSocket Secure)</td>
+                  <td>TLS 1.3</td>
+                  <td>JWT Token 인증</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">위성 통신</td>
+                  <td>VPN (WireGuard)</td>
+                  <td>ChaCha20-Poly1305</td>
+                  <td>Pre-shared Key + Certificate</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>역할 기반 접근 제어 (RBAC)</h3>
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>역할 (Role)</th>
+                  <th>접근 권한</th>
+                  <th>인증 방법</th>
+                  <th>대상</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell danger-cell">ADMIN</td>
+                  <td>시스템 전체 관리, 설정 변경, 사용자 관리</td>
+                  <td>MFA (비밀번호 + OTP)</td>
+                  <td>시스템 관리자</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell warning-cell">CAPTAIN</td>
+                  <td>전체 상황 모니터링, 비상모드 전환, 알림 관리</td>
+                  <td>생체인식 + PIN</td>
+                  <td>선장 / 부선장</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">OFFICER</td>
+                  <td>담당 구역 모니터링, 대피 안내, 훈련 관리</td>
+                  <td>ID 카드 + PIN</td>
+                  <td>항해사 / 안전관리자</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">CREW</td>
+                  <td>할당 구역 대피 안내, 상태 보고</td>
+                  <td>ID 카드</td>
+                  <td>일반 승무원</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell safe-cell">PASSENGER</td>
+                  <td>개인 대피 경로 수신 (읽기 전용)</td>
+                  <td>탑승권 QR + 객실번호</td>
+                  <td>승객</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <h3>DNV GL 사이버보안 인증 로드맵</h3>
+          <div class="flow-diagram">
+            <div class="flow-step">
+              <div class="flow-step-num">1</div>
+              <div class="flow-step-title">Gap Analysis</div>
+              <div class="flow-step-desc">현행 보안 수준<br>Gap 분석</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">2</div>
+              <div class="flow-step-title">Risk Assessment</div>
+              <div class="flow-step-desc">위험 평가<br>대응 계획 수립</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">3</div>
+              <div class="flow-step-title">Implementation</div>
+              <div class="flow-step-desc">보안 조치 구현<br>테스트</div>
+            </div>
+            <div class="flow-arrow">&#x27A1;</div>
+            <div class="flow-step">
+              <div class="flow-step-num">4</div>
+              <div class="flow-step-title">Audit</div>
+              <div class="flow-step-desc">DNV GL 심사<br>인증 취득</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- TECHNOLOGY SUMMARY -->
+        <!-- ============================================================ -->
+        <div class="content-section animate-in" id="tech-summary">
+          <h2>&#x1F527; 기술 스택 종합 (Technology Stack Summary)</h2>
+
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-value stat-value--info">Edge</div>
+              <div class="stat-label">MQTT / Kafka / PyTorch</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--danger">CFD</div>
+              <div class="stat-label">OpenFOAM / ParaView</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--safe">BIM</div>
+              <div class="stat-label">IFC / Neo4j / NetworkX</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--warning">3D</div>
+              <div class="stat-label">Unity / WebSocket / VR</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value stat-value--accent">Ops</div>
+              <div class="stat-label">Docker / K8s / Grafana</div>
+            </div>
+          </div>
+
+          <div class="data-table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>영역</th>
+                  <th>기술</th>
+                  <th>버전</th>
+                  <th>라이선스</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="highlight-cell">AI / ML</td>
+                  <td>PyTorch, Stable Baselines3, ONNX Runtime</td>
+                  <td>2.x, 2.x, 1.x</td>
+                  <td>BSD / MIT / MIT</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">CFD</td>
+                  <td>OpenFOAM, ParaView</td>
+                  <td>v11, 5.x</td>
+                  <td>GPL / BSD</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">BIM</td>
+                  <td>IfcOpenShell, NetworkX</td>
+                  <td>0.7.x, 3.x</td>
+                  <td>LGPL / BSD</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">3D Visualization</td>
+                  <td>Unity, URP, XR Interaction Toolkit</td>
+                  <td>2022 LTS</td>
+                  <td>Unity Pro</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Database</td>
+                  <td>InfluxDB, Neo4j, PostgreSQL, Redis</td>
+                  <td>2.x, 5.x, 16, 7.x</td>
+                  <td>MIT / GPL / PostgreSQL / BSD</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Messaging</td>
+                  <td>Eclipse Mosquitto, Apache Kafka</td>
+                  <td>2.x, 3.x</td>
+                  <td>EPL / Apache 2.0</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Monitoring</td>
+                  <td>Prometheus, Grafana, ELK Stack</td>
+                  <td>2.x, 10.x, 8.x</td>
+                  <td>Apache 2.0 / AGPL / Elastic</td>
+                </tr>
+                <tr>
+                  <td class="highlight-cell">Container / Orch</td>
+                  <td>Docker, Kubernetes</td>
+                  <td>24.x, 1.29</td>
+                  <td>Apache 2.0 / Apache 2.0</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <div class="footer-brand">FireNavi &#x1F525; 화이어내비</div>
+      <p>호화유람선 화재 대피 AI 내비게이션 솔루션 &copy; 2026</p>
+      <p style="margin-top:4px;">Patented Technology &middot; All Rights Reserved</p>
+    </footer>
+  </div>
+
+  <script src="../js/main.js"></script>
+</body>
+</html>
