@@ -148,7 +148,23 @@
       border-radius: var(--radius-md);
       padding: var(--space-lg);
       box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
     }
+    .stats-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+    .stats-card:nth-child(1)::before { background: linear-gradient(90deg, #2563EB, #3B82F6); }
+    .stats-card:nth-child(1) { background: linear-gradient(180deg, rgba(219,234,254,0.2) 0%, #FFFFFF 40%); }
+    .stats-card:nth-child(2)::before { background: linear-gradient(90deg, #059669, #10B981); }
+    .stats-card:nth-child(2) { background: linear-gradient(180deg, rgba(209,250,229,0.2) 0%, #FFFFFF 40%); }
+    .stats-card:nth-child(3)::before { background: linear-gradient(90deg, #7C3AED, #A78BFA); }
+    .stats-card:nth-child(3) { background: linear-gradient(180deg, rgba(237,233,254,0.2) 0%, #FFFFFF 40%); }
 
     .stats-card h3 {
       font-size: 0.85rem;
@@ -259,7 +275,37 @@
       padding: var(--space-xl);
       box-shadow: var(--shadow-card);
       transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
     }
+    .algo-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+    }
+    .algo-card:nth-child(1) { background: linear-gradient(160deg, rgba(219,234,254,0.25) 0%, #FFFFFF 30%); border-color: rgba(37,99,235,0.12); }
+    .algo-card:nth-child(1)::before { background: linear-gradient(90deg, #2563EB, #3B82F6); }
+    .algo-card:nth-child(1) h4 { color: #1D4ED8; }
+
+    .algo-card:nth-child(2) { background: linear-gradient(160deg, rgba(254,226,226,0.25) 0%, #FFFFFF 30%); border-color: rgba(229,62,62,0.12); }
+    .algo-card:nth-child(2)::before { background: linear-gradient(90deg, #E53E3E, #ED8936); }
+    .algo-card:nth-child(2) h4 { color: #C2410C; }
+
+    .algo-card:nth-child(3) { background: linear-gradient(160deg, rgba(209,250,229,0.25) 0%, #FFFFFF 30%); border-color: rgba(5,150,105,0.12); }
+    .algo-card:nth-child(3)::before { background: linear-gradient(90deg, #059669, #10B981); }
+    .algo-card:nth-child(3) h4 { color: #047857; }
+
+    .algo-card:nth-child(4) { background: linear-gradient(160deg, rgba(237,233,254,0.25) 0%, #FFFFFF 30%); border-color: rgba(124,58,237,0.12); }
+    .algo-card:nth-child(4)::before { background: linear-gradient(90deg, #7C3AED, #A78BFA); }
+    .algo-card:nth-child(4) h4 { color: #6D28D9; }
+
+    .algo-card:nth-child(5) { background: linear-gradient(160deg, rgba(207,250,254,0.25) 0%, #FFFFFF 30%); border-color: rgba(8,145,178,0.12); }
+    .algo-card:nth-child(5)::before { background: linear-gradient(90deg, #0891B2, #22D3EE); }
+    .algo-card:nth-child(5) h4 { color: #0E7490; }
+
     .algo-card:hover {
       transform: translateY(-3px);
       box-shadow: var(--shadow-lg);
