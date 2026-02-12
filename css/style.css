@@ -151,11 +151,11 @@ img {
 
 /* ============ NAVIGATION ============ */
 .top-nav {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 240, 245, 0.9);
   backdrop-filter: blur(24px) saturate(180%);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   box-shadow: 0 1px 0 rgba(0,0,0,0.06);
-  border-bottom: 1px solid rgba(226,232,240,0.6);
+  border-bottom: 1px solid rgba(252, 207, 224, 0.6);
   position: sticky;
   top: 0;
   z-index: 1000;
