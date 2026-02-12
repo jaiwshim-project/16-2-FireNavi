@@ -398,6 +398,8 @@
             <button class="sim-btn sim-btn--primary" id="btnFire">화재 배치 모드</button>
             <span id="fireCountBadge" style="display:none;background:#FEE2E2;color:#DC2626;font-size:0.8rem;font-weight:700;padding:4px 10px;border-radius:12px;border:1px solid #FECACA;">0개 배치</span>
             <button class="sim-btn sim-btn--safe" id="btnEvac" disabled>대피 시작</button>
+            <button class="sim-btn" id="btnFirefighter" disabled style="background:linear-gradient(135deg,#2563EB,#3B82F6);color:#fff;border:1px solid #1D4ED8;">🚒 소방관 투입</button>
+            <span id="ffBadge" style="display:none;background:#DBEAFE;color:#1D4ED8;font-size:0.8rem;font-weight:700;padding:4px 10px;border-radius:12px;border:1px solid #93C5FD;">0명 투입</span>
             <button class="sim-btn" id="btnReset">초기화</button>
 
             <div class="ctrl-sep"></div>
@@ -541,6 +543,14 @@
               <span class="label">경로탐색 중</span>
               <span class="value red" id="statStuck">0명</span>
             </div>
+            <div class="stat-row" style="border-top:1px solid var(--border);padding-top:8px;margin-top:8px;">
+              <span class="label">🚒 소방관 투입</span>
+              <span class="value blue" id="statFF">0명</span>
+            </div>
+            <div class="stat-row">
+              <span class="label">🔥 진압 완료</span>
+              <span class="value green" id="statFFDone">0건</span>
+            </div>
           </div>
         </div>
       </div>
@@ -668,6 +678,8 @@
     const btnFire = document.getElementById('btnFire');
     const btnEvac = document.getElementById('btnEvac');
     const btnReset = document.getElementById('btnReset');
+    const btnFirefighter = document.getElementById('btnFirefighter');
+    const ffBadge = document.getElementById('ffBadge');
     const fireCountBadge = document.getElementById('fireCountBadge');
     const speedSlider = document.getElementById('speedSlider');
     const speedVal = document.getElementById('speedVal');
@@ -699,6 +711,9 @@
     let fires = [];
     let fireExtinguishers = [];
     let passengers = [];
+    let firefighters = [];     // 소방관 에이전트
+    let ffDeployMode = false;  // 소방관 배치 모드
+    let ffSuppressCount = 0;   // 진압 완료 횟수
     let elapsedTime = 0;
     let evacuatedCount = 0;
     let evacuationTimes = [];
@@ -1804,6 +1819,180 @@
       }
     }
 
+    // ───── Firefighter System ─────
+    function spawnFirefighterTeam(targetFire) {
+      // 가장 가까운 출구에서 소방관 4명 투입
+      const fx = targetFire.x, fy = targetFire.y;
+      let bestExit = exits[0];
+      let bestDist = Infinity;
+      for (const ex of exits) {
+        const ecx = ex.x * CELL + ex.w * CELL / 2;
+        const ecy = ex.y * CELL + ex.h * CELL / 2;
+        const d = Math.sqrt((fx - ecx) ** 2 + (fy - ecy) ** 2);
+        if (d < bestDist) { bestDist = d; bestExit = ex; }
+      }
+      const spawnX = bestExit.x * CELL + bestExit.w * CELL / 2;
+      const spawnY = bestExit.y * CELL + bestExit.h * CELL / 2;
+
+      for (let i = 0; i < 4; i++) {
+        firefighters.push({
+          x: spawnX + (Math.random() - 0.5) * 10,
+          y: spawnY + (Math.random() - 0.5) * 10,
+          speed: 1.5 + Math.random() * 0.3, // 소방관은 빠름
+          targetFire: targetFire,
+          phase: 'moving',  // moving → suppressing → done
+          suppressTimer: 0,
+          path: [],
+          pathTimer: 0,
+          lastX: spawnX,
+          lastY: spawnY,
+          stuckTimer: 0
+        });
+      }
+    }
+
+    function updateFirefighters(dt) {
+      for (const ff of firefighters) {
+        if (ff.phase === 'done') continue;
+
+        // 진압 중
+        if (ff.phase === 'suppressing') {
+          ff.suppressTimer += dt;
+          // 5초간 진압 → 화재 대폭 축소
+          if (ff.suppressTimer >= 5) {
+            ff.targetFire.radius = Math.max(ff.targetFire.radius * 0.15, 2);
+            ff.targetFire.smokeRadius = Math.max(ff.targetFire.smokeRadius * 0.1, 3);
+            ff.targetFire.startTime = elapsedTime + 9999; // 재확산 방지
+            ff.phase = 'done';
+            ffSuppressCount++;
+          }
+          continue;
+        }
+
+        // 화재 방향으로 이동 (A* 경로 사용)
+        const speed = ff.speed * CELL * 2;
+        const tfx = ff.targetFire.x, tfy = ff.targetFire.y;
+        const distToFire = Math.sqrt((ff.x - tfx) ** 2 + (ff.y - tfy) ** 2);
+        const targetDist = ff.targetFire.radius + 15;
+
+        // 화재 근처 도달 → 진압 시작
+        if (distToFire < targetDist + 10) {
+          ff.phase = 'suppressing';
+          ff.suppressTimer = 0;
+          continue;
+        }
+
+        // 경로 탐색
+        ff.pathTimer -= dt;
+        const movedDx = ff.x - ff.lastX, movedDy = ff.y - ff.lastY;
+        if (Math.sqrt(movedDx ** 2 + movedDy ** 2) < 0.5) ff.stuckTimer += dt;
+        else ff.stuckTimer = 0;
+        ff.lastX = ff.x; ff.lastY = ff.y;
+
+        if (ff.path.length === 0 || ff.pathTimer <= 0 || ff.stuckTimer > 1) {
+          // 화재 가장 가까운 walkable 셀을 목표로
+          const fireGR = Math.floor(tfy / CELL);
+          const fireGC = Math.floor(tfx / CELL);
+          let bestTarget = null;
+          let bestD = Infinity;
+          for (let dr = -3; dr <= 3; dr++) {
+            for (let dc = -3; dc <= 3; dc++) {
+              const nr = fireGR + dr, nc = fireGC + dc;
+              if (isWalkable(nr, nc)) {
+                const px = nc * CELL + CELL / 2, py = nr * CELL + CELL / 2;
+                const d = Math.sqrt((px - tfx) ** 2 + (py - tfy) ** 2);
+                if (d < bestD) { bestD = d; bestTarget = { x: nc, y: nr, w: 1, h: 1 }; }
+              }
+            }
+          }
+          if (bestTarget) {
+            ff.path = findPath(ff.x, ff.y, bestTarget);
+          }
+          ff.pathTimer = 0.8;
+          ff.stuckTimer = 0;
+        }
+
+        // 경로 따라 이동
+        if (ff.path.length > 0) {
+          const target = ff.path[0];
+          const dx = target.x - ff.x, dy = target.y - ff.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          const moveAmt = speed * dt;
+          if (dist < moveAmt) { ff.x = target.x; ff.y = target.y; ff.path.shift(); }
+          else { ff.x += (dx / dist) * moveAmt; ff.y += (dy / dist) * moveAmt; }
+        } else {
+          // 경로 없으면 직선 이동
+          const dx = tfx - ff.x, dy = tfy - ff.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 1) {
+            ff.x += (dx / dist) * speed * 0.5 * dt;
+            ff.y += (dy / dist) * speed * 0.5 * dt;
+          }
+        }
+      }
+    }
+
+    function drawFirefighters() {
+      for (const ff of firefighters) {
+        if (ff.phase === 'done') {
+          // 완료: 파란 체크 표시
+          ctx.fillStyle = 'rgba(37, 99, 235, 0.5)';
+          ctx.beginPath();
+          ctx.arc(ff.x, ff.y, 5, 0, Math.PI * 2);
+          ctx.fill();
+          continue;
+        }
+
+        // 소방관 몸체 (파란색 사각형)
+        const size = 6;
+        ctx.fillStyle = ff.phase === 'suppressing'
+          ? (Math.sin(elapsedTime * 10) > 0 ? '#2563EB' : '#EF4444') // 진압 중: 파랑/빨강 깜박
+          : '#2563EB'; // 이동 중: 파란색
+        ctx.fillRect(ff.x - size / 2, ff.y - size / 2, size, size);
+
+        // 테두리
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(ff.x - size / 2, ff.y - size / 2, size, size);
+
+        // 헬멧 (상단 노란 반원)
+        ctx.fillStyle = '#FCD34D';
+        ctx.beginPath();
+        ctx.arc(ff.x, ff.y - size / 2 - 1, 3, Math.PI, 0);
+        ctx.fill();
+
+        // 진압 중이면 물줄기 효과
+        if (ff.phase === 'suppressing') {
+          const tfx = ff.targetFire.x, tfy = ff.targetFire.y;
+          const dx = tfx - ff.x, dy = tfy - ff.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > 0) {
+            ctx.strokeStyle = 'rgba(59, 130, 246, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 3]);
+            ctx.beginPath();
+            ctx.moveTo(ff.x, ff.y);
+            ctx.lineTo(ff.x + dx * 0.7, ff.y + dy * 0.7);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 물방울 효과
+            const splashX = ff.x + dx * 0.6 + (Math.random() - 0.5) * 10;
+            const splashY = ff.y + dy * 0.6 + (Math.random() - 0.5) * 10;
+            ctx.fillStyle = 'rgba(96, 165, 250, 0.5)';
+            ctx.beginPath();
+            ctx.arc(splashX, splashY, 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // FF 라벨
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 6px sans-serif';
+        ctx.fillText('FF', ff.x - 5, ff.y + 2);
+      }
+    }
+
     // ───── UI Updates ─────
     function updateStats(atRisk) {
       const activePassengers = passengers.filter(p => !p.evacuated);
@@ -1849,6 +2038,11 @@
       const stuckCount = passengers.filter(p => !p.evacuated && p.stuckTimer > 3 && !p.usingExtinguisher).length;
       document.getElementById('statStuck').textContent = stuckCount + '명';
 
+      // 소방관 통계
+      const activeFF = firefighters.filter(f => f.phase !== 'done').length;
+      document.getElementById('statFF').textContent = firefighters.length + '명 (' + activeFF + '활동)';
+      document.getElementById('statFFDone').textContent = ffSuppressCount + '건';
+
       // Check done
       if (mode === 'evacuating' && activePassengers.length === 0) {
         mode = 'done';
@@ -1871,11 +2065,13 @@
       // Update
       updateFires(dt);
       const atRisk = updatePassengers(dt);
+      updateFirefighters(dt);
 
       // Draw
       ctx.clearRect(0, 0, W, H);
       drawShip();
       drawFires();
+      drawFirefighters();
       drawPassengers();
       drawEvacuatedFlash();
       updateStats(atRisk);
@@ -1895,8 +2091,34 @@
     }
 
     canvas.addEventListener('click', function (e) {
-      if (mode !== 'placing') return;
       const coords = getCanvasCoords(e);
+
+      // 소방관 배치 모드
+      if (ffDeployMode) {
+        // 클릭 위치에 가장 가까운 화재 찾기
+        let nearestFire = null;
+        let nearestDist = Infinity;
+        for (const f of fires) {
+          const d = Math.sqrt((coords.x - f.x) ** 2 + (coords.y - f.y) ** 2);
+          if (d < nearestDist) { nearestDist = d; nearestFire = f; }
+        }
+        if (nearestFire && nearestDist < 200) {
+          spawnFirefighterTeam(nearestFire);
+          ffBadge.style.display = 'inline-block';
+          ffBadge.textContent = firefighters.length + '명 투입';
+          ffDeployMode = false;
+          btnFirefighter.classList.remove('active-mode');
+          canvas.style.cursor = 'default';
+          overlay.classList.add('hidden');
+        } else {
+          overlay.innerHTML = '<b style="color:#2563EB;">화재 근처를 클릭하세요!</b><br>' +
+            '<span style="font-size:0.85rem;">화재 지점 주변을 클릭하면 소방관 4명이 투입됩니다</span>';
+        }
+        return;
+      }
+
+      // 화재 배치 모드
+      if (mode !== 'placing') return;
       addFire(coords.x, coords.y);
       statFireCount.textContent = fires.length;
       fireCountBadge.style.display = 'inline-block';
@@ -1936,10 +2158,28 @@
       btnFire.classList.remove('active-mode');
       btnFire.disabled = true;
       btnEvac.disabled = true;
+      btnFirefighter.disabled = false; // 소방관 투입 버튼 활성화
       canvas.style.cursor = 'default';
       fireCountBadge.style.background = '#FEF3C7';
       fireCountBadge.style.color = '#D97706';
       fireCountBadge.style.borderColor = '#FDE68A';
+    });
+
+    btnFirefighter.addEventListener('click', function () {
+      if (mode !== 'evacuating' && mode !== 'done') return;
+      ffDeployMode = !ffDeployMode;
+      if (ffDeployMode) {
+        btnFirefighter.classList.add('active-mode');
+        canvas.style.cursor = 'crosshair';
+        overlay.classList.remove('hidden');
+        overlay.innerHTML = '<b style="color:#2563EB;font-size:1.1rem;">🚒 소방관 투입 모드</b><br>' +
+          '<span style="font-size:0.85rem;">진압할 화재 근처를 클릭하세요</span><br>' +
+          '<span style="font-size:0.8rem;color:#64748B;">소방관 4명이 가장 가까운 출구에서 진입합니다</span>';
+      } else {
+        btnFirefighter.classList.remove('active-mode');
+        canvas.style.cursor = 'default';
+        overlay.classList.add('hidden');
+      }
     });
 
     btnReset.addEventListener('click', function () {
@@ -1965,6 +2205,9 @@
     function resetSimulation() {
       mode = 'idle';
       fires = [];
+      firefighters = [];
+      ffDeployMode = false;
+      ffSuppressCount = 0;
       for (const fe of fireExtinguishers) fe.available = true;
       evacuatedCount = 0;
       elapsedTime = 0;
@@ -1972,6 +2215,9 @@
       lastFrameTime = 0;
       btnFire.disabled = false;
       btnEvac.disabled = true;
+      btnFirefighter.disabled = true;
+      btnFirefighter.classList.remove('active-mode');
+      ffBadge.style.display = 'none';
       btnFire.classList.remove('active-mode');
       canvas.style.cursor = 'default';
       overlay.classList.remove('hidden');
