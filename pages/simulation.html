@@ -630,11 +630,12 @@
             <h4><span style="color:var(--fire-yellow);">&#x1F6AA;</span> 객실 출입구 및 이동 경로</h4>
             <p>
               각 객실에는 복도 방향으로 1개의 출입구(노란색 표시)가 있습니다.
-              승객은 반드시 출입구를 통해 복도로 나온 후 출구를 향해 이동합니다.
+              승객은 반드시 출입구를 통해 복도로 나온 후 출구 또는 계단을 향해 이동합니다.
+              계단에 도달한 승객은 다른 층으로 이동하여 안전하게 대피한 것으로 간주됩니다.
               레스토랑은 4방향(상/하/좌/우) 출입구가 있어 다양한 경로로 대피 가능합니다.
             </p>
             <span class="formula-inline">
-              이동 경로: 객실 내부 → 출입구(doorway) → 복도(corridor) → 계단/출구(exit)
+              이동 경로: 객실 내부 → 출입구(doorway) → 복도(corridor) → 계단(stairway)/출구(exit) → 대피 완료
             </span>
           </div>
 
@@ -1192,10 +1193,12 @@
     function findNearestSafeExit(px, py) {
       let best = null;
       let bestScore = Infinity;
-      for (const ex of exits) {
+      // 출구 + 계단 모두 대피 목적지로 포함 (계단 도달 = 다른 층 이동 = 대피 완료)
+      const allTargets = exits.concat(stairways);
+      for (const ex of allTargets) {
         const ecx = ex.x * CELL + ex.w * CELL / 2;
         const ecy = ex.y * CELL + ex.h * CELL / 2;
-        // 화재 내부의 출구 제외
+        // 화재 내부의 출구/계단 제외
         if (isInFire(ecx, ecy)) continue;
 
         const dx = px - ecx, dy = py - ecy;
@@ -1417,9 +1420,10 @@
             p.targetExit = findNearestSafeExit(p.x, p.y);
             p.path = findPath(p.x, p.y, p.targetExit);
 
-            // 첫 번째 출구로 경로 못 찾으면 다른 출구들도 시도
+            // 첫 번째 출구로 경로 못 찾으면 다른 출구/계단도 시도
             if (p.path.length === 0) {
-              for (const ex of exits) {
+              const allTargets = exits.concat(stairways);
+              for (const ex of allTargets) {
                 if (ex === p.targetExit) continue;
                 const altPath = findPath(p.x, p.y, ex);
                 if (altPath.length > 0) {
@@ -1533,8 +1537,9 @@
           emergencyMove(p, dt);
         }
 
-        // Check if reached exit
-        for (const ex of exits) {
+        // Check if reached exit or stairway (계단 도달 = 다른 층 이동 = 대피 완료)
+        const allEvacTargets = exits.concat(stairways);
+        for (const ex of allEvacTargets) {
           const ecx = ex.x * CELL + ex.w * CELL / 2;
           const ecy = ex.y * CELL + ex.h * CELL / 2;
           const dx = p.x - ecx, dy = p.y - ecy;
@@ -1667,17 +1672,17 @@
         ctx.fillText('집결지', ms.x * CELL + 4, ms.y * CELL + 26);
       }
 
-      // Stairways
+      // Stairways (계단 = 대피 가능 지점, 다른 층 이동)
       for (const sw of stairways) {
-        ctx.fillStyle = 'rgba(49, 130, 206, 0.2)';
+        ctx.fillStyle = 'rgba(49, 130, 206, 0.25)';
         ctx.fillRect(sw.x * CELL, sw.y * CELL, sw.w * CELL, sw.h * CELL);
-        ctx.strokeStyle = 'rgba(49, 130, 206, 0.6)';
-        ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(49, 130, 206, 0.8)';
+        ctx.lineWidth = 1.5;
         ctx.strokeRect(sw.x * CELL, sw.y * CELL, sw.w * CELL, sw.h * CELL);
         // Draw stair lines
         const sx = sw.x * CELL, sy = sw.y * CELL;
         const swidth = sw.w * CELL, sheight = sw.h * CELL;
-        ctx.strokeStyle = 'rgba(49, 130, 206, 0.4)';
+        ctx.strokeStyle = 'rgba(49, 130, 206, 0.5)';
         ctx.lineWidth = 0.5;
         for (let i = 1; i < 4; i++) {
           ctx.beginPath();
@@ -1685,6 +1690,10 @@
           ctx.lineTo(sx + swidth, sy + (sheight / 4) * i);
           ctx.stroke();
         }
+        // Stairway label
+        ctx.fillStyle = 'rgba(49, 130, 206, 0.9)';
+        ctx.font = 'bold 6px sans-serif';
+        ctx.fillText('STAIR', sx + 2, sy + sheight - 3);
       }
 
       // Exits
@@ -1831,14 +1840,21 @@
     }
 
     function drawEvacuatedFlash() {
-      // Brief green dot flash at exits when someone evacuates
-      // (simple visual feedback)
+      // Brief green/blue dot flash at exits and stairways when someone evacuates
       for (const ex of exits) {
         const ecx = ex.x * CELL + ex.w * CELL / 2;
         const ecy = ex.y * CELL + ex.h * CELL / 2;
         ctx.beginPath();
         ctx.arc(ecx, ecy, 3, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(56, 161, 105, 0.8)';
+        ctx.fill();
+      }
+      for (const sw of stairways) {
+        const scx = sw.x * CELL + sw.w * CELL / 2;
+        const scy = sw.y * CELL + sw.h * CELL / 2;
+        ctx.beginPath();
+        ctx.arc(scx, scy, 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(49, 130, 206, 0.8)';
         ctx.fill();
       }
     }
