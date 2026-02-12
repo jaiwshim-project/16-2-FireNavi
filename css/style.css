@@ -194,6 +194,21 @@ img {
   background-clip: text;
 }
 
+.nav-brand .nav-tagline {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  -webkit-text-fill-color: #475569;
+  background: none;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  opacity: 0.85;
+  border-left: 2px solid #CBD5E1;
+  padding-left: 10px;
+  margin-left: 2px;
+  line-height: 1.2;
+}
+
 .nav-links {
   display: flex;
   align-items: center;
