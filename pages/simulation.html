@@ -9,7 +9,7 @@
     /* ===== Simulation Page Specific Styles ===== */
     .sim-layout {
       display: grid;
-      grid-template-columns: 1fr 320px;
+      grid-template-columns: 1fr 360px;
       gap: var(--space-lg);
       margin: var(--space-lg) 0;
     }
@@ -26,10 +26,11 @@
 
     .canvas-wrap {
       position: relative;
-      background: #0a1018;
-      border: 1px solid var(--border);
+      background: linear-gradient(145deg, #080E18, #0F1724);
+      border: 1px solid rgba(51,65,85,0.4);
       border-radius: var(--radius-lg);
       overflow: hidden;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.2);
     }
 
     .canvas-wrap canvas {
@@ -61,11 +62,12 @@
       flex-wrap: wrap;
       align-items: center;
       gap: var(--space-sm);
-      padding: var(--space-md);
+      padding: var(--space-md) var(--space-lg);
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       margin-top: var(--space-md);
+      box-shadow: var(--shadow-card);
     }
 
     .ctrl-group {
@@ -145,6 +147,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
       padding: var(--space-lg);
+      box-shadow: var(--shadow-card);
     }
 
     .stats-card h3 {
@@ -253,7 +256,13 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      padding: var(--space-lg);
+      padding: var(--space-xl);
+      box-shadow: var(--shadow-card);
+      transition: all 0.3s ease;
+    }
+    .algo-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
     }
 
     .algo-card h4 {
