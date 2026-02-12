@@ -1057,7 +1057,7 @@
         const dx = px - f.x, dy = py - f.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         if (dist < f.radius) {
-          danger += 100000; // 화재 내부 = 사실상 통행 불가
+          danger += 8000; // 화재 내부 = 높은 비용이지만 통과 가능 (생존 탈출용)
         } else if (dist < f.radius * 1.5) {
           danger += 5000 * (1 - (dist - f.radius) / (f.radius * 0.5)); // 화재 근접 = 매우 높은 비용
         } else if (dist < f.smokeRadius) {
@@ -1141,10 +1141,9 @@
           const nk = key(nr, nc);
           if (closed.has(nk)) continue;
 
-          // 화재 구역 내부 셀은 완전 차단
+          // 화재 구역도 높은 비용으로 통과 허용 (완전 차단 X → 탈출 보장)
           const cellPx = nc * CELL + CELL / 2;
           const cellPy = nr * CELL + CELL / 2;
-          if (isBlockedByFire(cellPx, cellPy)) continue;
 
           // Diagonal check - avoid cutting corners
           if (dr !== 0 && dc !== 0) {
@@ -1267,30 +1266,37 @@
       const gr = Math.floor(p.y / CELL);
       const gc = Math.floor(p.x / CELL);
 
-      // 화재 반대 방향 벡터 계산
+      // 1) 출구 방향 벡터 (최우선)
+      let exitDx = 0, exitDy = 0;
+      const safeExit = findNearestSafeExit(p.x, p.y);
+      if (safeExit) {
+        const ecx = safeExit.x * CELL + safeExit.w * CELL / 2;
+        const ecy = safeExit.y * CELL + safeExit.h * CELL / 2;
+        exitDx = ecx - p.x;
+        exitDy = ecy - p.y;
+        const d = Math.sqrt(exitDx * exitDx + exitDy * exitDy);
+        if (d > 0) { exitDx /= d; exitDy /= d; }
+      }
+
+      // 2) 화재 회피 벡터
       let awayDx = 0, awayDy = 0;
       for (const f of fires) {
         const fdx = p.x - f.x, fdy = p.y - f.y;
         const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
         if (fdist > 0 && fdist < 250) {
-          awayDx += fdx / fdist;
-          awayDy += fdy / fdist;
+          const weight = 1 / (fdist * fdist + 1);
+          awayDx += (fdx / fdist) * weight;
+          awayDy += (fdy / fdist) * weight;
         }
       }
-      // 화재가 없으면 가장 가까운 출구 방향으로
-      if (awayDx === 0 && awayDy === 0) {
-        const ex = findNearestSafeExit(p.x, p.y);
-        if (ex) {
-          const ecx = ex.x * CELL + ex.w * CELL / 2;
-          const ecy = ex.y * CELL + ex.h * CELL / 2;
-          awayDx = ecx - p.x;
-          awayDy = ecy - p.y;
-          const d = Math.sqrt(awayDx * awayDx + awayDy * awayDy);
-          if (d > 0) { awayDx /= d; awayDy /= d; }
-        }
-      }
+      const awayLen = Math.sqrt(awayDx * awayDx + awayDy * awayDy);
+      if (awayLen > 0) { awayDx /= awayLen; awayDy /= awayLen; }
 
-      // 8방향 중 화재 반대로 가장 잘 맞는 이동 가능한 셀 선택
+      // 3) 합성: 출구 방향 70% + 화재 회피 30%
+      const combinedDx = exitDx * 0.7 + awayDx * 0.3;
+      const combinedDy = exitDy * 0.7 + awayDy * 0.3;
+
+      // 8방향 중 합성 방향으로 가장 잘 맞는 이동 가능한 셀 선택
       const dirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
       let bestDir = null;
       let bestScore = -Infinity;
@@ -1300,12 +1306,13 @@
         if (!isWalkable(nr, nc)) continue;
         const cellPx = nc * CELL + CELL / 2;
         const cellPy = nr * CELL + CELL / 2;
-        if (isBlockedByFire(cellPx, cellPy)) continue;
+        // 화재 내부라도 통과 허용 (생존 위해 탈출 우선)
+        const firePenalty = isBlockedByFire(cellPx, cellPy) ? -0.5 : 0;
         // 대각선 코너 통과 방지
         if (dr !== 0 && dc !== 0) {
           if (!isWalkable(gr + dr, gc) || !isWalkable(gr, gc + dc)) continue;
         }
-        const score = dc * awayDx + dr * awayDy - fireDangerAt(cellPx, cellPy) * 0.001;
+        const score = dc * combinedDx + dr * combinedDy + firePenalty - fireDangerAt(cellPx, cellPy) * 0.0001;
         if (score > bestScore) {
           bestScore = score;
           bestDir = [dr, dc];
@@ -1317,7 +1324,7 @@
         const targetY = (gr + bestDir[0]) * CELL + CELL / 2;
         const dx = targetX - p.x, dy = targetY - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        const speed = p.speed * CELL * 2 * 0.5; // 긴급 이동은 느림
+        const speed = p.speed * CELL * 2 * 0.8; // 긴급 이동도 빠르게
         if (dist > 1) {
           p.x += (dx / dist) * speed * dt;
           p.y += (dy / dist) * speed * dt;
@@ -1334,9 +1341,27 @@
       for (const p of passengers) {
         if (p.evacuated) continue;
 
-        // Check if passenger is in fire zone -> they can't move through fire
+        // Check if passenger is in fire zone -> 긴급 탈출 (화재 반대 방향으로 강제 이동)
         if (isInFire(p.x, p.y)) {
           atRisk++;
+          // 화재 안에서도 탈출 시도 - 화재 반대 방향으로 빠르게 이동
+          const escapeSpeed = p.speed * CELL * 3; // 1.5배 빠른 긴급 속도
+          let escapeDx = 0, escapeDy = 0;
+          for (const f of fires) {
+            const fdx = p.x - f.x, fdy = p.y - f.y;
+            const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+            if (fdist > 0 && fdist < f.radius * 2) {
+              escapeDx += fdx / fdist;
+              escapeDy += fdy / fdist;
+            }
+          }
+          const elen = Math.sqrt(escapeDx * escapeDx + escapeDy * escapeDy);
+          if (elen > 0) {
+            p.x += (escapeDx / elen) * escapeSpeed * dt;
+            p.y += (escapeDy / elen) * escapeSpeed * dt;
+          }
+          p.path = [];
+          p.pathTimer = 0;
           continue;
         }
 
@@ -1365,9 +1390,9 @@
         // 경로 재계산 조건
         p.pathTimer -= dt;
         const needsRepath = p.path.length === 0 || p.pathTimer <= 0;
-        // 오래 멈춰있으면 더 자주 재탐색
-        const isStuck = p.stuckTimer > 2;
-        const shouldRepath = needsRepath || (isStuck && p.pathTimer <= 0.3);
+        // 멈춰있으면 더 자주 재탐색 (1초로 단축)
+        const isStuck = p.stuckTimer > 1;
+        const shouldRepath = needsRepath || (isStuck && p.pathTimer <= 0.2);
 
         if (shouldRepath) {
           // 멈춰있을 때: 모든 출구 시도 (가장 안전한 것부터)
@@ -1379,9 +1404,6 @@
             if (p.path.length === 0) {
               for (const ex of exits) {
                 if (ex === p.targetExit) continue;
-                const ecx = ex.x * CELL + ex.w * CELL / 2;
-                const ecy = ex.y * CELL + ex.h * CELL / 2;
-                if (isInFire(ecx, ecy)) continue;
                 const altPath = findPath(p.x, p.y, ex);
                 if (altPath.length > 0) {
                   p.path = altPath;
@@ -1396,7 +1418,7 @@
           }
           p.pathTimer = 1.0 + Math.random() * 1.5;
 
-          // ★ 경로를 찾지 못한 경우 = 화재로 차단됨 → 소화기 사용 시도
+          // ★ 경로를 찾지 못한 경우 = 화재로 차단됨 → 소화기 사용 시도 또는 긴급 이동
           if (p.path.length === 0 && !p.usingExtinguisher) {
             const nearFire = findNearestFireToPoint(p.x, p.y, 120);
             if (nearFire) {
@@ -1407,7 +1429,13 @@
                 p.fireTarget = nearFire;
                 p.extPhase = 'goToFE';
                 p.extTimer = 0;
+              } else {
+                // 소화기 없으면 즉시 긴급 이동
+                emergencyMove(p, dt);
               }
+            } else {
+              // 화재가 멀면 가장 가까운 출구로 직선 이동
+              emergencyMove(p, dt);
             }
           }
         }
@@ -1483,8 +1511,8 @@
             p.y += (dy / dist) * moveAmt;
           }
         }
-        // ★ 경로 없고 2초 이상 멈춤 → 긴급 이동 (화재 반대 방향)
-        else if (p.stuckTimer > 2) {
+        // ★ 경로 없고 0.5초 이상 멈춤 → 긴급 이동 (출구 방향 우선)
+        else if (p.stuckTimer > 0.5) {
           emergencyMove(p, dt);
         }
 
