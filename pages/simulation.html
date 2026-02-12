@@ -6,6 +6,12 @@
   <title>FireNavi - 화이어내비 | 실시간 대피 시뮬레이션</title>
   <link rel="stylesheet" href="../css/style.css">
   <style>
+    /* ===== AI Recommend Panel Scrollbar ===== */
+    #ffRecommendPanel::-webkit-scrollbar { width: 6px; }
+    #ffRecommendPanel::-webkit-scrollbar-track { background: transparent; }
+    #ffRecommendPanel::-webkit-scrollbar-thumb { background: #93C5FD; border-radius: 3px; }
+    #ffRecommendPanel::-webkit-scrollbar-thumb:hover { background: #60A5FA; }
+
     /* ===== Simulation Page Specific Styles ===== */
     .sim-layout {
       display: grid;
@@ -555,13 +561,18 @@
         </div>
       </div>
 
-      <!-- AI Firefighter Recommendation Panel -->
-      <div id="ffRecommendPanel" style="display:none; margin-top:var(--space-lg); background:linear-gradient(135deg, rgba(219,234,254,0.6), rgba(239,246,255,0.8)); border:2px solid #3B82F6; border-radius:var(--radius-lg); padding:var(--space-lg); box-shadow:var(--shadow-lg);">
-        <h3 style="margin:0 0 12px 0; font-size:1rem; color:#1D4ED8; display:flex; align-items:center; gap:8px;">
-          <span style="font-size:1.2rem;">🤖</span> AI 소방관 투입 추천 분석
-          <span style="font-size:0.75rem; font-weight:400; color:#64748B; margin-left:auto;">FireNavi AI Engine</span>
-        </h3>
-        <div id="ffRecommendContent" style="font-size:0.85rem; color:var(--text-primary); line-height:1.7;"></div>
+      <!-- AI Firefighter Recommendation Panel (오른쪽 아래 플로팅 창) -->
+      <div id="ffRecommendPanel" style="display:none; position:fixed; bottom:20px; right:20px; width:420px; max-height:70vh; overflow-y:auto; background:linear-gradient(135deg, rgba(219,234,254,0.95), rgba(239,246,255,0.98)); border:2px solid #3B82F6; border-radius:16px; padding:20px; box-shadow:0 20px 60px rgba(0,0,0,0.3), 0 0 20px rgba(59,130,246,0.2); z-index:1000; backdrop-filter:blur(10px);">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <h3 style="margin:0; font-size:1.05rem; color:#1D4ED8; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:1.3rem;">🤖</span> AI 추천
+          </h3>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:0.7rem; font-weight:500; color:#64748B;">FireNavi AI Engine</span>
+            <button onclick="document.getElementById('ffRecommendPanel').style.display='none'" style="background:none; border:1px solid #CBD5E1; border-radius:6px; cursor:pointer; font-size:1rem; padding:2px 8px; color:#64748B; line-height:1;">&times;</button>
+          </div>
+        </div>
+        <div id="ffRecommendContent" style="font-size:0.83rem; color:#1E293B; line-height:1.7;"></div>
       </div>
 
       <!-- Algorithm Info -->
