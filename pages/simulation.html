@@ -925,8 +925,106 @@
         default: buildDeck5();
       }
 
+      // ★ 모든 객실/방이 복도를 통해 출구/계단에 연결되어 있는지 검증 및 자동 수정
+      ensureConnectivity();
+
       // 소화기 배치 (공통)
       placeFireExtinguishers();
+    }
+
+    // ── 연결성 보장: 모든 방이 출구/계단에 도달 가능하도록 자동 연결 ──
+    function ensureConnectivity() {
+      // 1단계: 출구/계단에서 Flood Fill → 도달 가능한 셀 마킹
+      const reachable = [];
+      for (let r = 0; r < ROWS; r++) {
+        reachable[r] = [];
+        for (let c = 0; c < COLS; c++) reachable[r][c] = false;
+      }
+      const queue = [];
+      // 시작점: 모든 출구 + 계단의 셀
+      for (const ex of exits.concat(stairways)) {
+        for (let r = ex.y; r < ex.y + ex.h; r++) {
+          for (let c = ex.x; c < ex.x + ex.w; c++) {
+            if (r >= 0 && r < ROWS && c >= 0 && c < COLS && isWalkable(r, c)) {
+              if (!reachable[r][c]) {
+                reachable[r][c] = true;
+                queue.push([r, c]);
+              }
+            }
+          }
+        }
+      }
+      // BFS flood fill
+      const dirs4 = [[-1,0],[1,0],[0,-1],[0,1]];
+      while (queue.length > 0) {
+        const [cr, cc] = queue.shift();
+        for (const [dr, dc] of dirs4) {
+          const nr = cr + dr, nc = cc + dc;
+          if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+          if (reachable[nr][nc]) continue;
+          if (!isWalkable(nr, nc)) continue;
+          reachable[nr][nc] = true;
+          queue.push([nr, nc]);
+        }
+      }
+
+      // 2단계: 도달 불가능한 walkable 셀 찾기 → 가장 가까운 도달 가능한 복도(type 1)까지 연결
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!isWalkable(r, c) || reachable[r][c]) continue;
+          // 이 셀은 walkable인데 출구/계단에 도달 불가 → 연결 필요
+          // 가장 가까운 reachable 셀(type 1 복도 우선) 찾기
+          let bestR = -1, bestC = -1, bestDist = Infinity;
+          const searchRange = 15;
+          for (let sr = Math.max(0, r - searchRange); sr < Math.min(ROWS, r + searchRange); sr++) {
+            for (let sc = Math.max(0, c - searchRange); sc < Math.min(COLS, c + searchRange); sc++) {
+              if (!reachable[sr][sc]) continue;
+              if (grid[sr][sc] !== 1) continue; // 복도만
+              const d = Math.abs(sr - r) + Math.abs(sc - c);
+              if (d < bestDist) { bestDist = d; bestR = sr; bestC = sc; }
+            }
+          }
+          if (bestR < 0) continue; // 연결 대상 없음
+
+          // 연결: 수직 먼저, 수평 나중 (L자형 복도 생성)
+          let curR = r, curC = c;
+          while (curR !== bestR) {
+            curR += curR < bestR ? 1 : -1;
+            if (grid[curR][curC] === 0) {
+              grid[curR][curC] = 1; // 복도로 변환
+            }
+            reachable[curR][curC] = true;
+          }
+          while (curC !== bestC) {
+            curC += curC < bestC ? 1 : -1;
+            if (grid[curR][curC] === 0) {
+              grid[curR][curC] = 1;
+            }
+            reachable[curR][curC] = true;
+          }
+          // 원래 셀도 reachable로
+          reachable[r][c] = true;
+        }
+      }
+
+      // 3단계: 재검증 (새로 연결된 경로로 다시 flood fill)
+      const queue2 = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (reachable[r][c]) queue2.push([r, c]);
+        }
+      }
+      while (queue2.length > 0) {
+        const [cr, cc] = queue2.shift();
+        for (const [dr, dc] of dirs4) {
+          const nr = cr + dr, nc = cc + dc;
+          if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+          if (reachable[nr][nc]) continue;
+          if (!isWalkable(nr, nc)) continue;
+          reachable[nr][nc] = true;
+          queue2.push([nr, nc]);
+        }
+      }
     }
 
     // ── 공통: 소화기 배치 ──
@@ -1074,7 +1172,7 @@
       addCorridor(50, 28, 2, 12);
       addCorridor(75, 28, 2, 12);
       for (let x = 10; x < 80; x += 7) {
-        if (x > 15 && x < 72) addCabin(x, 34, 5, 3, 33);
+        if (x > 15 && x < 72) addCabin(x, 34, 5, 3, 37); // ★ 수정: 33→37 (복도 y=38 방향으로 출입구)
       }
       for (let x = 10; x < 80; x += 7) {
         if (x > 15 && x < 72) addCabin(x, 41, 5, 3, 40);
@@ -1133,16 +1231,16 @@
       // 카페 (우측)
       addRestaurant(56, 22, 18, 10);
 
-      // 하단 객실들
-      for (let x = 10; x < 20; x += 6) addCabin(x, 22, 4, 4, 21);
-      for (let x = 76; x < 86; x += 6) addCabin(x, 22, 4, 4, 21);
+      // 하단 객실들 (복도 y=14..15 아래쪽)
+      for (let x = 10; x < 20; x += 6) addCabin(x, 17, 4, 4, 16); // ★ 수정: y=22→17, door=16 (복도 y=14 방향)
+      for (let x = 76; x < 86; x += 6) addCabin(x, 17, 4, 4, 16); // ★ 수정: 같은 수정
+      addCorridor(8, 40, 80, 1);
       for (let x = 10; x < 80; x += 6) {
         if (x > 17 && x < 68) addCabin(x, 37, 4, 3, 36);
       }
       for (let x = 10; x < 80; x += 6) {
         if (x > 17 && x < 68) addCabin(x, 41, 4, 3, 40);
       }
-      addCorridor(8, 40, 80, 1);
 
       // Engine Room (하단 양쪽에 주방)
       addEngineRoom(8, 44, 25, 4);
@@ -1191,9 +1289,9 @@
       // 카지노 (우측)
       addRestaurant(56, 13, 22, 8);
 
-      // 하단 스위트
-      for (let x = 8; x < 20; x += 8) addCabin(x, 22, 6, 5, 21);
-      for (let x = 48; x < 80; x += 8) addCabin(x, 22, 6, 5, 21);
+      // 하단 스위트 (복도 y=28 방향 출입구)
+      for (let x = 8; x < 20; x += 8) addCabin(x, 22, 6, 5, 27); // ★ 수정: 21→27 (복도 y=28 방향)
+      for (let x = 48; x < 80; x += 8) addCabin(x, 22, 6, 5, 27); // ★ 수정: 21→27
 
       // 최하단 일반 객실
       addCorridor(8, 38, 80, 2);
