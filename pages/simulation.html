@@ -3275,8 +3275,38 @@
       // Check done
       if (mode === 'evacuating' && activePassengers.length === 0) {
         mode = 'done';
-        statMode.textContent = '대피 완료!';
+        paused = false;
+        const btnP = document.getElementById('btnPause');
+        btnP.style.display = 'none';
+
+        // 유형별 대피 시간 통계
+        const typeStats = {};
+        for (const p of passengers) {
+          if (!typeStats[p.typeKey]) typeStats[p.typeKey] = { times: [], label: PASSENGER_TYPES[p.typeKey].label };
+          if (p.evacuatedTime) typeStats[p.typeKey].times.push(p.evacuatedTime);
+        }
+        let summaryLines = [];
+        for (const tk of Object.keys(typeStats)) {
+          const ts = typeStats[tk];
+          if (ts.times.length > 0) {
+            const avg = (ts.times.reduce((a, b) => a + b, 0) / ts.times.length).toFixed(1);
+            const mx = Math.max(...ts.times).toFixed(1);
+            summaryLines.push(ts.label + ': ' + avg + 's (max ' + mx + 's)');
+          }
+        }
+        const totalAvg = evacuationTimes.length > 0 ?
+          (evacuationTimes.reduce((a, b) => a + b, 0) / evacuationTimes.length).toFixed(1) : '0';
+
+        statMode.textContent = '대피 완료! ' + elapsedTime.toFixed(1) + '초 (평균 ' + totalAvg + '초)';
         statMode.style.color = 'var(--safe)';
+
+        overlay.classList.remove('hidden');
+        overlay.innerHTML = '<b style="color:#38A169;font-size:1.2rem;">대피 완료</b><br>' +
+          '<span style="font-size:0.9rem;">' + passengers.length + '명 전원 대피 (' + elapsedTime.toFixed(1) + '초)</span><br>' +
+          '<span style="font-size:0.85rem;">평균 대피 시간: ' + totalAvg + '초</span>' +
+          '<hr style="border:none;border-top:1px solid rgba(255,255,255,0.15);margin:6px 0;">' +
+          '<div style="font-size:0.78rem;text-align:left;">' + summaryLines.join('<br>') + '</div>' +
+          (ffSuppressCount > 0 ? '<br><span style="font-size:0.8rem;color:#3B82F6;">소방관 진압: ' + ffSuppressCount + '건</span>' : '');
       }
     }
 
