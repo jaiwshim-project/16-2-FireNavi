@@ -654,6 +654,7 @@
             <p>
               여기서 R(n)은 위험 가중치 함수이며, 화재 거리와 연기 밀도에 따라 노드별 추가 비용을 산정합니다.
               경로는 화재 확산에 따라 실시간으로 재계산됩니다.
+              Binary MinHeap 우선순위 큐를 사용하여 O(n log n) → O(n log n) 최적 시간복잡도로 탐색합니다.
             </p>
           </div>
 
@@ -1734,7 +1735,41 @@
       return false;
     }
 
-    // ───── A* Pathfinding ─────
+    // ───── A* Pathfinding (MinHeap 최적화) ─────
+    // Binary MinHeap: O(log n) push/pop vs O(n log n) sort
+    class MinHeap {
+      constructor() { this.data = []; }
+      push(node) {
+        this.data.push(node);
+        let i = this.data.length - 1;
+        while (i > 0) {
+          const p = (i - 1) >> 1;
+          if (this.data[p].f <= this.data[i].f) break;
+          [this.data[p], this.data[i]] = [this.data[i], this.data[p]];
+          i = p;
+        }
+      }
+      pop() {
+        const top = this.data[0];
+        const last = this.data.pop();
+        if (this.data.length > 0) {
+          this.data[0] = last;
+          let i = 0;
+          while (true) {
+            let min = i;
+            const l = 2 * i + 1, r = 2 * i + 2;
+            if (l < this.data.length && this.data[l].f < this.data[min].f) min = l;
+            if (r < this.data.length && this.data[r].f < this.data[min].f) min = r;
+            if (min === i) break;
+            [this.data[min], this.data[i]] = [this.data[i], this.data[min]];
+            i = min;
+          }
+        }
+        return top;
+      }
+      get size() { return this.data.length; }
+    }
+
     function findPath(startX, startY, targetExit) {
       const sr = Math.floor(startY / CELL);
       const sc = Math.floor(startX / CELL);
@@ -1743,8 +1778,8 @@
 
       if (sr === er && sc === ec) return [];
 
-      // Simple A*
-      const open = [];
+      const open = new MinHeap();
+      const openSet = new Set();  // O(1) 중복 검사
       const closed = new Set();
       const gScore = {};
       const fScore = {};
@@ -1757,6 +1792,7 @@
       gScore[startKey] = 0;
       fScore[startKey] = heuristic(sr, sc, er, ec);
       open.push({ r: sr, c: sc, f: fScore[startKey] });
+      openSet.add(startKey);
 
       const dirs = [
         [-1, 0], [1, 0], [0, -1], [0, 1],
@@ -1766,15 +1802,13 @@
       let iterations = 0;
       const maxIter = 20000;
 
-      while (open.length > 0 && iterations < maxIter) {
+      while (open.size > 0 && iterations < maxIter) {
         iterations++;
-        // Find lowest fScore
-        open.sort((a, b) => a.f - b.f);
-        const current = open.shift();
+        const current = open.pop();
         const ck = key(current.r, current.c);
+        openSet.delete(ck);
 
         if (ck === endKey) {
-          // Reconstruct path
           const path = [];
           let k = ck;
           while (k !== startKey) {
@@ -1797,11 +1831,9 @@
           const nk = key(nr, nc);
           if (closed.has(nk)) continue;
 
-          // 화재 구역도 높은 비용으로 통과 허용 (완전 차단 X → 탈출 보장)
           const cellPx = nc * CELL + CELL / 2;
           const cellPy = nr * CELL + CELL / 2;
 
-          // Diagonal check - avoid cutting corners
           if (dr !== 0 && dc !== 0) {
             if (!isWalkable(current.r + dr, current.c) || !isWalkable(current.r, current.c + dc)) continue;
           }
@@ -1814,8 +1846,9 @@
             cameFrom[nk] = ck;
             gScore[nk] = tentativeG;
             fScore[nk] = tentativeG + heuristic(nr, nc, er, ec);
-            if (!open.find(o => key(o.r, o.c) === nk)) {
+            if (!openSet.has(nk)) {
               open.push({ r: nr, c: nc, f: fScore[nk] });
+              openSet.add(nk);
             }
           }
         }
@@ -2008,9 +2041,45 @@
       return false;
     }
 
+    // ───── Spatial Grid (O(n²) → O(n·k) 근접 탐색 최적화) ─────
+    const SPATIAL_SIZE = CELL * 3; // 근접 판정 범위와 동일
+    const SPATIAL_COLS = Math.ceil(W / SPATIAL_SIZE);
+    const SPATIAL_ROWS_N = Math.ceil(H / SPATIAL_SIZE);
+    let spatialGrid = null;
+
+    function buildSpatialGrid() {
+      spatialGrid = new Array(SPATIAL_ROWS_N * SPATIAL_COLS);
+      for (let i = 0; i < spatialGrid.length; i++) spatialGrid[i] = [];
+      for (const p of passengers) {
+        if (p.evacuated) continue;
+        const sc = Math.floor(p.x / SPATIAL_SIZE);
+        const sr = Math.floor(p.y / SPATIAL_SIZE);
+        if (sc >= 0 && sc < SPATIAL_COLS && sr >= 0 && sr < SPATIAL_ROWS_N) {
+          spatialGrid[sr * SPATIAL_COLS + sc].push(p);
+        }
+      }
+    }
+
+    function getNearbyPassengers(px, py) {
+      const result = [];
+      const sc = Math.floor(px / SPATIAL_SIZE);
+      const sr = Math.floor(py / SPATIAL_SIZE);
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const r = sr + dr, c = sc + dc;
+          if (r >= 0 && r < SPATIAL_ROWS_N && c >= 0 && c < SPATIAL_COLS) {
+            const cell = spatialGrid[r * SPATIAL_COLS + c];
+            for (let i = 0; i < cell.length; i++) result.push(cell[i]);
+          }
+        }
+      }
+      return result;
+    }
+
     // ───── Update Passengers ─────
     function updatePassengers(dt) {
       let atRisk = 0;
+      buildSpatialGrid(); // 매 프레임 공간 그리드 재구성
 
       for (const p of passengers) {
         if (p.evacuated) continue;
@@ -2231,7 +2300,9 @@
           let socialFx = 0, socialFy = 0; // 사회적 반발력
           // Social Force는 복도/공용구역에서만 적용 (객실 내부/출입구에서는 비적용)
           if (inCorridor) {
-            for (const other of passengers) {
+            const nearList = getNearbyPassengers(p.x, p.y);
+            for (let ni = 0; ni < nearList.length; ni++) {
+              const other = nearList[ni];
               if (other === p || other.evacuated) continue;
               const odx = other.x - p.x, ody = other.y - p.y;
               const oDist = Math.sqrt(odx * odx + ody * ody);
@@ -2269,7 +2340,9 @@
             }
           } else {
             // 객실 내부: Social Force 없이 밀집도만 계산
-            for (const other of passengers) {
+            const nearList = getNearbyPassengers(p.x, p.y);
+            for (let ni = 0; ni < nearList.length; ni++) {
+              const other = nearList[ni];
               if (other === p || other.evacuated) continue;
               const odx = other.x - p.x, ody = other.y - p.y;
               if (Math.sqrt(odx * odx + ody * ody) < CELL * 3) nearby++;
