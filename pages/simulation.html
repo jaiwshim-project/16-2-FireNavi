@@ -441,6 +441,7 @@
             <button class="sim-btn sim-btn--safe" id="btnEvac" disabled>대피 시작</button>
             <button class="sim-btn" id="btnFirefighter" disabled style="background:linear-gradient(135deg,#2563EB,#3B82F6);color:#fff;border:1px solid #1D4ED8;">🚒 소방관 투입</button>
             <span id="ffBadge" style="display:none;background:#DBEAFE;color:#1D4ED8;font-size:0.8rem;font-weight:700;padding:4px 10px;border-radius:12px;border:1px solid #93C5FD;">0명 투입</span>
+            <button class="sim-btn" id="btnPause" style="background:linear-gradient(135deg,#D97706,#F59E0B);color:#fff;border:1px solid #B45309;font-size:0.78rem;display:none;">⏸ 일시정지</button>
             <button class="sim-btn" id="btnReset">초기화</button>
             <button class="sim-btn" id="btnRiskMap" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;border:1px solid #6D28D9;font-size:0.78rem;">위험지도</button>
 
@@ -846,6 +847,7 @@
     // ───── State ─────
     let currentDeck = 5; // 현재 선택된 층 (5~9층)
     let mode = 'idle'; // idle | placing | evacuating | done
+    let paused = false;
     let simSpeed = 1;
     let passengerCount = 40;
     let fires = [];
@@ -3283,6 +3285,20 @@
       if (!lastFrameTime) lastFrameTime = timestamp;
       const rawDt = (timestamp - lastFrameTime) / 1000;
       lastFrameTime = timestamp;
+
+      // 일시정지 시 화면만 다시 그리기 (시간 진행 X)
+      if (paused) {
+        ctx.clearRect(0, 0, W, H);
+        drawShip();
+        drawFires();
+        drawRiskMapOverlay();
+        drawFirefighters();
+        drawPassengers();
+        drawEvacuatedFlash();
+        animId = requestAnimationFrame(loop);
+        return;
+      }
+
       const dt = rawDt * simSpeed;
 
       if (mode === 'evacuating' || fires.length > 0) {
@@ -3389,6 +3405,7 @@
       btnFire.disabled = true;
       btnEvac.disabled = true;
       btnFirefighter.disabled = false; // 소방관 투입 버튼 활성화
+      document.getElementById('btnPause').style.display = 'inline-block'; // 일시정지 버튼 표시
       canvas.style.cursor = 'default';
       fireCountBadge.style.background = '#FEF3C7';
       fireCountBadge.style.color = '#D97706';
@@ -3411,6 +3428,25 @@
         btnFirefighter.classList.remove('active-mode');
         canvas.style.cursor = 'default';
         overlay.classList.add('hidden');
+      }
+    });
+
+    // 일시정지/재개 토글
+    document.getElementById('btnPause').addEventListener('click', function () {
+      paused = !paused;
+      if (paused) {
+        this.textContent = '▶ 재개';
+        this.style.background = 'linear-gradient(135deg,#059669,#10B981)';
+        this.style.borderColor = '#047857';
+        statMode.textContent = '일시정지';
+        statMode.style.color = '#F59E0B';
+      } else {
+        this.textContent = '⏸ 일시정지';
+        this.style.background = 'linear-gradient(135deg,#D97706,#F59E0B)';
+        this.style.borderColor = '#B45309';
+        statMode.textContent = '대피 진행 중... (화재 ' + fires.length + '개)';
+        statMode.style.color = 'var(--warning)';
+        lastFrameTime = 0; // dt 누적 방지
       }
     });
 
@@ -3443,6 +3479,12 @@
     // ───── Reset ─────
     function resetSimulation() {
       mode = 'idle';
+      paused = false;
+      const btnPause = document.getElementById('btnPause');
+      btnPause.style.display = 'none';
+      btnPause.textContent = '⏸ 일시정지';
+      btnPause.style.background = 'linear-gradient(135deg,#D97706,#F59E0B)';
+      btnPause.style.borderColor = '#B45309';
       fires = [];
       firefighters = [];
       ffDeployMode = false;
