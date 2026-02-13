@@ -1454,19 +1454,25 @@
     function addEngineRoom(gx, gy, gw, gh) {
       engineRooms.push({ x: gx, y: gy, w: gw, h: gh });
       fillGrid(gx, gy, gw, gh, 4);
-      // 출입문 추가: 4방향 중앙에 door (복도 연결용)
-      const doorPositions = [
-        { x: gx + Math.floor(gw / 2), y: gy - 1 },         // 상단
-        { x: gx + Math.floor(gw / 2), y: gy + gh },         // 하단
-        { x: gx - 1, y: gy + Math.floor(gh / 2) },           // 좌측
-        { x: gx + gw, y: gy + Math.floor(gh / 2) },          // 우측
+      // 출입문: 4방향 테두리에 door + 바깥 브릿지 셀 (복도 연결)
+      // ※ type 4는 isWalkable=false이므로 테두리 자체에 문을 놓아야 함
+      const doorPairs = [
+        // [테두리 셀(방 경계), 바깥 브릿지 셀(복도 방향)]
+        [{ x: gx + Math.floor(gw / 2), y: gy },         { x: gx + Math.floor(gw / 2), y: gy - 1 }],
+        [{ x: gx + Math.floor(gw / 2), y: gy + gh - 1 }, { x: gx + Math.floor(gw / 2), y: gy + gh }],
+        [{ x: gx, y: gy + Math.floor(gh / 2) },           { x: gx - 1, y: gy + Math.floor(gh / 2) }],
+        [{ x: gx + gw - 1, y: gy + Math.floor(gh / 2) }, { x: gx + gw, y: gy + Math.floor(gh / 2) }],
       ];
-      for (const dp of doorPositions) {
-        if (dp.y >= 0 && dp.y < ROWS && dp.x >= 0 && dp.x < COLS) {
-          // 문 위치가 복도(1)이거나 빈 벽(0)이면 출입구 설정
-          if (grid[dp.y][dp.x] === 1 || grid[dp.y][dp.x] === 0) {
-            grid[dp.y][dp.x] = 1;
-            doorways.push({ x: dp.x, y: dp.y, type: 'engine' });
+      for (const [border, bridge] of doorPairs) {
+        // 테두리 셀을 walkable(type 1)로 → 내부↔외부 통로
+        if (border.y >= 0 && border.y < ROWS && border.x >= 0 && border.x < COLS) {
+          grid[border.y][border.x] = 1;
+          doorways.push({ x: border.x, y: border.y, type: 'engine' });
+        }
+        // 바깥 브릿지 셀도 walkable로 (벽/엔진룸이면)
+        if (bridge.y >= 0 && bridge.y < ROWS && bridge.x >= 0 && bridge.x < COLS) {
+          if (grid[bridge.y][bridge.x] === 0 || grid[bridge.y][bridge.x] === 4) {
+            grid[bridge.y][bridge.x] = 1;
           }
         }
       }
