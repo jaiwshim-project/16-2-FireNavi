@@ -1306,12 +1306,22 @@
       cabins.push({ x: gx, y: gy, w: gw, h: gh, doorY: doorBridgeY });
       // 객실 내부를 통행 가능(type 8)으로 설정
       fillGrid(gx, gy, gw, gh, 8);
-      // 출입구: 객실 중앙에서 복도 방향으로 1셀 연결
+      // 출입구: 객실 폭 전체를 연결 (객실 ↔ 복도 이동 보장)
       if (doorBridgeY !== undefined) {
+        // 객실 전체 폭만큼 출입구 행을 walkable(1)로 설정
+        for (let dx = 0; dx < gw; dx++) {
+          const dxx = gx + dx;
+          if (doorBridgeY >= 0 && doorBridgeY < ROWS && dxx >= 0 && dxx < COLS) {
+            grid[doorBridgeY][dxx] = 1;
+          }
+        }
+        // 출입구 시각 표시용 (중앙 2칸만 doorway로 등록)
         const doorX = gx + Math.floor(gw / 2);
-        if (doorBridgeY >= 0 && doorBridgeY < ROWS && doorX >= 0 && doorX < COLS) {
-          grid[doorBridgeY][doorX] = 1; // 출입구 셀을 통행 가능으로
-          doorways.push({ x: doorX, y: doorBridgeY, roomX: gx, roomY: gy });
+        for (let dx = -1; dx <= 0; dx++) {
+          const dxx = doorX + dx;
+          if (doorBridgeY >= 0 && doorBridgeY < ROWS && dxx >= 0 && dxx < COLS) {
+            doorways.push({ x: dxx, y: doorBridgeY, roomX: gx, roomY: gy });
+          }
         }
       }
     }
@@ -1878,18 +1888,34 @@
 
         if (mode !== 'evacuating') continue;
 
-        // ★ 벽 안에 갇힌 승객 구출: 가장 가까운 walkable 셀로 스냅
+        // ★ 벽 안에 갇힌 승객 구출: 가장 가까운 복도(type 1) 셀 우선 스냅
         const curR = Math.floor(p.y / CELL), curC = Math.floor(p.x / CELL);
         if (!isWalkable(curR, curC)) {
           let rescued = false;
+          // 1차: 복도(type 1) 우선 탐색
           for (let sr = -2; sr <= 2 && !rescued; sr++) {
             for (let sc = -2; sc <= 2 && !rescued; sc++) {
-              if (isWalkable(curR + sr, curC + sc)) {
-                p.x = (curC + sc) * CELL + CELL / 2;
-                p.y = (curR + sr) * CELL + CELL / 2;
+              const chkR = curR + sr, chkC = curC + sc;
+              if (chkR >= 0 && chkR < ROWS && chkC >= 0 && chkC < COLS && grid[chkR][chkC] === 1) {
+                p.x = chkC * CELL + CELL / 2;
+                p.y = chkR * CELL + CELL / 2;
                 p.path = [];
                 p.pathTimer = 0;
                 rescued = true;
+              }
+            }
+          }
+          // 2차: 아무 walkable 셀
+          if (!rescued) {
+            for (let sr = -3; sr <= 3 && !rescued; sr++) {
+              for (let sc = -3; sc <= 3 && !rescued; sc++) {
+                if (isWalkable(curR + sr, curC + sc)) {
+                  p.x = (curC + sc) * CELL + CELL / 2;
+                  p.y = (curR + sr) * CELL + CELL / 2;
+                  p.path = [];
+                  p.pathTimer = 0;
+                  rescued = true;
+                }
               }
             }
           }
@@ -2022,22 +2048,58 @@
           }
 
           // Social Force Model (Eq. 1): F_i = F_desire + Σ F_social + Σ F_wall + F_random
+          // 현재 셀 타입 확인 (객실 내부에서는 Social Force 비적용)
+          const pCellR = Math.floor(p.y / CELL), pCellC = Math.floor(p.x / CELL);
+          const pCellType = (pCellR >= 0 && pCellR < ROWS && pCellC >= 0 && pCellC < COLS) ? grid[pCellR][pCellC] : 0;
+          const inCorridor = (pCellType === 1 || pCellType === 5 || pCellType === 6 || pCellType === 7);
+
           // Crowd density (Greenshields Eq. 4) + Social repulsion
           let nearby = 0;
           let socialFx = 0, socialFy = 0; // 사회적 반발력
-          for (const other of passengers) {
-            if (other === p || other.evacuated) continue;
-            const odx = other.x - p.x, ody = other.y - p.y;
-            const oDist = Math.sqrt(odx * odx + ody * ody);
-            if (oDist < CELL * 3) {
-              nearby++;
-              // Social repulsion force: 가까울수록 강한 반발 (A·exp(-d/B))
-              if (oDist > 0.5) {
-                const A = 2.0, B = CELL * 1.5;
-                const repulsion = A * Math.exp(-oDist / B);
-                socialFx -= (odx / oDist) * repulsion;
-                socialFy -= (ody / oDist) * repulsion;
+          // Social Force는 복도/공용구역에서만 적용 (객실 내부/출입구에서는 비적용)
+          if (inCorridor) {
+            for (const other of passengers) {
+              if (other === p || other.evacuated) continue;
+              const odx = other.x - p.x, ody = other.y - p.y;
+              const oDist = Math.sqrt(odx * odx + ody * ody);
+              if (oDist < CELL * 3) {
+                nearby++;
+                // Social repulsion force: 가까울수록 강한 반발 (A·exp(-d/B))
+                if (oDist > 0.5) {
+                  const A = 2.0, B = CELL * 1.5;
+                  const repulsion = A * Math.exp(-oDist / B);
+                  socialFx -= (odx / oDist) * repulsion;
+                  socialFy -= (ody / oDist) * repulsion;
+                }
               }
+            }
+            // F_wall: 벽면 반발력 — 인접 벽에서 밀어내기
+            for (let wr = -1; wr <= 1; wr++) {
+              for (let wc = -1; wc <= 1; wc++) {
+                if (wr === 0 && wc === 0) continue;
+                const checkR = pCellR + wr, checkC = pCellC + wc;
+                if (checkR < 0 || checkR >= ROWS || checkC < 0 || checkC >= COLS) continue;
+                const adjType = grid[checkR][checkC];
+                // 벽(0) 또는 객실(8) 옆이면 반발력 추가 → 복도에서 객실로 밀려 들어가는 것 방지
+                if (adjType === 0 || adjType === 8) {
+                  const wallPx = checkC * CELL + CELL / 2;
+                  const wallPy = checkR * CELL + CELL / 2;
+                  const wdx = p.x - wallPx, wdy = p.y - wallPy;
+                  const wDist = Math.sqrt(wdx * wdx + wdy * wdy);
+                  if (wDist > 0.1) {
+                    const wallRepulsion = 3.0 * Math.exp(-wDist / (CELL * 0.8));
+                    socialFx += (wdx / wDist) * wallRepulsion;
+                    socialFy += (wdy / wDist) * wallRepulsion;
+                  }
+                }
+              }
+            }
+          } else {
+            // 객실 내부: Social Force 없이 밀집도만 계산
+            for (const other of passengers) {
+              if (other === p || other.evacuated) continue;
+              const odx = other.x - p.x, ody = other.y - p.y;
+              if (Math.sqrt(odx * odx + ody * ody) < CELL * 3) nearby++;
             }
           }
           if (nearby > 0) {
@@ -2048,10 +2110,12 @@
           // 이동 방향 = 경로 방향(desire) + Social Force 보정
           let moveDx = (dx / dist);
           let moveDy = (dy / dist);
-          // Social force blending (약한 보정, 주 방향 유지)
-          const sfScale = 0.15;
-          moveDx += socialFx * sfScale;
-          moveDy += socialFy * sfScale;
+          // Social force blending (복도에서만 적용)
+          if (inCorridor && (socialFx !== 0 || socialFy !== 0)) {
+            const sfScale = 0.12;
+            moveDx += socialFx * sfScale;
+            moveDy += socialFy * sfScale;
+          }
           // 정규화
           const moveMag = Math.sqrt(moveDx * moveDx + moveDy * moveDy);
           if (moveMag > 0) { moveDx /= moveMag; moveDy /= moveMag; }
@@ -2063,13 +2127,29 @@
           } else {
             const newX = p.x + moveDx * moveAmt;
             const newY = p.y + moveDy * moveAmt;
-            // ★ 벽 진입 방지: 이동 후 위치가 walkable인지 검증
             const newR = Math.floor(newY / CELL), newC = Math.floor(newX / CELL);
+            // ★ 이동 후 유효성 검증
             if (isWalkable(newR, newC)) {
-              p.x = newX;
-              p.y = newY;
+              const newCellType = grid[newR][newC];
+              // 복도(1)에서 객실(8)로 Social Force로 밀려 들어가는 것 방지
+              if (inCorridor && newCellType === 8) {
+                // 경로 방향만으로 이동 (Social Force 무시)
+                const fallbackX = p.x + (dx / dist) * moveAmt;
+                const fallbackY = p.y + (dy / dist) * moveAmt;
+                const fbR = Math.floor(fallbackY / CELL), fbC = Math.floor(fallbackX / CELL);
+                if (isWalkable(fbR, fbC) && grid[fbR][fbC] !== 8) {
+                  p.x = fallbackX;
+                  p.y = fallbackY;
+                } else if (isWalkable(fbR, fbC)) {
+                  p.x = fallbackX;
+                  p.y = fallbackY;
+                }
+              } else {
+                p.x = newX;
+                p.y = newY;
+              }
             } else {
-              // Social Force가 벽으로 밀었으면 경로 방향만으로 이동
+              // 벽으로 밀렸으면 경로 방향만으로 이동
               const fallbackX = p.x + (dx / dist) * moveAmt;
               const fallbackY = p.y + (dy / dist) * moveAmt;
               const fbR = Math.floor(fallbackY / CELL), fbC = Math.floor(fallbackX / CELL);
@@ -2085,26 +2165,57 @@
           emergencyMove(p, dt);
         }
 
-        // ★ 장기 멈춤 구출 (15초 이상): 가장 가까운 출구/계단으로 강제 이동
-        if (p.stuckTimer > 15 && !p.usingExtinguisher) {
-          const allTargets = exits.concat(stairways);
-          let nearest = null, nearDist = Infinity;
-          for (const ex of allTargets) {
-            const ecx = ex.x * CELL + ex.w * CELL / 2;
-            const ecy = ex.y * CELL + ex.h * CELL / 2;
-            const d = Math.sqrt((p.x - ecx) ** 2 + (p.y - ecy) ** 2);
-            if (d < nearDist) { nearDist = d; nearest = ex; }
-          }
-          if (nearest) {
-            // 출구 방향으로 빠르게 직선 이동 (벽 무시)
-            const ecx = nearest.x * CELL + nearest.w * CELL / 2;
-            const ecy = nearest.y * CELL + nearest.h * CELL / 2;
-            const fdx = ecx - p.x, fdy = ecy - p.y;
-            const fd = Math.sqrt(fdx * fdx + fdy * fdy);
-            if (fd > 1) {
-              const forceSpeed = p.speed * CELL * 4;
-              p.x += (fdx / fd) * forceSpeed * dt;
-              p.y += (fdy / fd) * forceSpeed * dt;
+        // ★ 장기 멈춤 구출 (8초 이상): 객실 안이면 출입구로, 복도면 출구로 강제 이동
+        if (p.stuckTimer > 8 && !p.usingExtinguisher) {
+          const stuckR = Math.floor(p.y / CELL), stuckC = Math.floor(p.x / CELL);
+          const stuckType = (stuckR >= 0 && stuckR < ROWS && stuckC >= 0 && stuckC < COLS) ? grid[stuckR][stuckC] : 0;
+
+          if (stuckType === 8) {
+            // 객실 내부에 갇힘 → 가장 가까운 출입구(doorway)로 강제 이동
+            let nearDoor = null, nearDoorDist = Infinity;
+            for (const dw of doorways) {
+              const dwPx = dw.x * CELL + CELL / 2;
+              const dwPy = dw.y * CELL + CELL / 2;
+              const d = Math.sqrt((p.x - dwPx) ** 2 + (p.y - dwPy) ** 2);
+              if (d < nearDoorDist) { nearDoorDist = d; nearDoor = dw; }
+            }
+            if (nearDoor) {
+              const tgtX = nearDoor.x * CELL + CELL / 2;
+              const tgtY = nearDoor.y * CELL + CELL / 2;
+              const fdx = tgtX - p.x, fdy = tgtY - p.y;
+              const fd = Math.sqrt(fdx * fdx + fdy * fdy);
+              if (fd > 1) {
+                const forceSpeed = p.speed * CELL * 3;
+                p.x += (fdx / fd) * forceSpeed * dt;
+                p.y += (fdy / fd) * forceSpeed * dt;
+                p.stuckTimer = 5; // 리셋하지 않고 약간만 줄여서 계속 강제 이동
+              }
+            }
+          } else {
+            // 복도/공용구역에서 멈춤 → 가장 가까운 출구/계단으로 강제 이동
+            const allTargets = exits.concat(stairways);
+            let nearest = null, nearDist = Infinity;
+            for (const ex of allTargets) {
+              const ecx = ex.x * CELL + ex.w * CELL / 2;
+              const ecy = ex.y * CELL + ex.h * CELL / 2;
+              const d = Math.sqrt((p.x - ecx) ** 2 + (p.y - ecy) ** 2);
+              if (d < nearDist) { nearDist = d; nearest = ex; }
+            }
+            if (nearest) {
+              const ecx = nearest.x * CELL + nearest.w * CELL / 2;
+              const ecy = nearest.y * CELL + nearest.h * CELL / 2;
+              const fdx = ecx - p.x, fdy = ecy - p.y;
+              const fd = Math.sqrt(fdx * fdx + fdy * fdy);
+              if (fd > 1) {
+                const forceSpeed = p.speed * CELL * 4;
+                const newX = p.x + (fdx / fd) * forceSpeed * dt;
+                const newY = p.y + (fdy / fd) * forceSpeed * dt;
+                const chkR = Math.floor(newY / CELL), chkC = Math.floor(newX / CELL);
+                if (isWalkable(chkR, chkC)) {
+                  p.x = newX;
+                  p.y = newY;
+                }
+              }
             }
           }
         }
