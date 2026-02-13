@@ -1828,8 +1828,13 @@
         const dist = Math.sqrt(dx * dx + dy * dy);
         const speed = p.speed * CELL * 2 * 0.8; // 긴급 이동도 빠르게
         if (dist > 1) {
-          p.x += (dx / dist) * speed * dt;
-          p.y += (dy / dist) * speed * dt;
+          const newX = p.x + (dx / dist) * speed * dt;
+          const newY = p.y + (dy / dist) * speed * dt;
+          const chkR = Math.floor(newY / CELL), chkC = Math.floor(newX / CELL);
+          if (isWalkable(chkR, chkC)) {
+            p.x = newX;
+            p.y = newY;
+          }
         }
         return true;
       }
@@ -1872,6 +1877,23 @@
         }
 
         if (mode !== 'evacuating') continue;
+
+        // ★ 벽 안에 갇힌 승객 구출: 가장 가까운 walkable 셀로 스냅
+        const curR = Math.floor(p.y / CELL), curC = Math.floor(p.x / CELL);
+        if (!isWalkable(curR, curC)) {
+          let rescued = false;
+          for (let sr = -2; sr <= 2 && !rescued; sr++) {
+            for (let sc = -2; sc <= 2 && !rescued; sc++) {
+              if (isWalkable(curR + sr, curC + sc)) {
+                p.x = (curC + sc) * CELL + CELL / 2;
+                p.y = (curR + sr) * CELL + CELL / 2;
+                p.path = [];
+                p.pathTimer = 0;
+                rescued = true;
+              }
+            }
+          }
+        }
 
         // ★ 멈춤 감지: 이전 프레임 대비 이동 거리 체크
         const movedDx = p.x - p.lastX, movedDy = p.y - p.lastY;
@@ -2039,13 +2061,52 @@
             p.y = target.y;
             p.path.shift();
           } else {
-            p.x += moveDx * moveAmt;
-            p.y += moveDy * moveAmt;
+            const newX = p.x + moveDx * moveAmt;
+            const newY = p.y + moveDy * moveAmt;
+            // ★ 벽 진입 방지: 이동 후 위치가 walkable인지 검증
+            const newR = Math.floor(newY / CELL), newC = Math.floor(newX / CELL);
+            if (isWalkable(newR, newC)) {
+              p.x = newX;
+              p.y = newY;
+            } else {
+              // Social Force가 벽으로 밀었으면 경로 방향만으로 이동
+              const fallbackX = p.x + (dx / dist) * moveAmt;
+              const fallbackY = p.y + (dy / dist) * moveAmt;
+              const fbR = Math.floor(fallbackY / CELL), fbC = Math.floor(fallbackX / CELL);
+              if (isWalkable(fbR, fbC)) {
+                p.x = fallbackX;
+                p.y = fallbackY;
+              }
+            }
           }
         }
         // ★ 경로 없고 0.5초 이상 멈춤 → 긴급 이동 (출구 방향 우선)
         else if (p.stuckTimer > 0.5) {
           emergencyMove(p, dt);
+        }
+
+        // ★ 장기 멈춤 구출 (15초 이상): 가장 가까운 출구/계단으로 강제 이동
+        if (p.stuckTimer > 15 && !p.usingExtinguisher) {
+          const allTargets = exits.concat(stairways);
+          let nearest = null, nearDist = Infinity;
+          for (const ex of allTargets) {
+            const ecx = ex.x * CELL + ex.w * CELL / 2;
+            const ecy = ex.y * CELL + ex.h * CELL / 2;
+            const d = Math.sqrt((p.x - ecx) ** 2 + (p.y - ecy) ** 2);
+            if (d < nearDist) { nearDist = d; nearest = ex; }
+          }
+          if (nearest) {
+            // 출구 방향으로 빠르게 직선 이동 (벽 무시)
+            const ecx = nearest.x * CELL + nearest.w * CELL / 2;
+            const ecy = nearest.y * CELL + nearest.h * CELL / 2;
+            const fdx = ecx - p.x, fdy = ecy - p.y;
+            const fd = Math.sqrt(fdx * fdx + fdy * fdy);
+            if (fd > 1) {
+              const forceSpeed = p.speed * CELL * 4;
+              p.x += (fdx / fd) * forceSpeed * dt;
+              p.y += (fdy / fd) * forceSpeed * dt;
+            }
+          }
         }
 
         // Check if reached exit or stairway (계단 도달 = 다른 층 이동 = 대피 완료)
