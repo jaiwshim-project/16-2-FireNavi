@@ -1696,10 +1696,31 @@
         const dx = px - ecx, dy = py - ecy;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
-        // 승객→출구 경로상 화재가 있는지 평가
-        // 경로 중간점들을 샘플링하여 화재 근접도 체크
+        // ★ 근접 우선: 매우 가까운 출구/계단(50px 이내)은 무조건 최우선
+        if (dist < 50) {
+          const score = dist * 0.1; // 거리만 고려, 화재 패널티 무시
+          if (score < bestScore) { bestScore = score; best = ex; }
+          continue;
+        }
+
+        // ★ 근접 보너스: 가까울수록 큰 할인 (100px 이내 = 50% 할인)
+        const proximityBonus = dist < 100 ? dist * 0.5 : dist;
+
+        // 출구 자체의 화재 근접 패널티 (출구가 화재/연기 안에 있는지)
+        let exitFirePenalty = 0;
+        for (const f of fires) {
+          const fdx = ecx - f.x, fdy = ecy - f.y;
+          const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
+          if (fdist < f.radius * 1.5) {
+            exitFirePenalty += 8000; // 화재 바로 옆 출구
+          } else if (fdist < f.smokeRadius) {
+            exitFirePenalty += 1500 * (1 - fdist / f.smokeRadius);
+          }
+        }
+
+        // 승객→출구 직선 경로상 화재 체크 (가까운 출구는 샘플 수 줄임)
         let pathFirePenalty = 0;
-        const samples = 8;
+        const samples = dist < 150 ? 3 : 6;
         for (let i = 1; i <= samples; i++) {
           const t = i / (samples + 1);
           const sx = px + (ecx - px) * t;
@@ -1708,24 +1729,14 @@
             const fdx = sx - f.x, fdy = sy - f.y;
             const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
             if (fdist < f.radius * 1.5) {
-              pathFirePenalty += 10000; // 경로상 화재 → 큰 패널티
+              pathFirePenalty += 5000;
             } else if (fdist < f.smokeRadius) {
-              pathFirePenalty += 500 * (1 - fdist / f.smokeRadius);
+              pathFirePenalty += 300 * (1 - fdist / f.smokeRadius);
             }
           }
         }
 
-        // 출구 자체의 화재 근접 패널티
-        let exitFirePenalty = 0;
-        for (const f of fires) {
-          const fdx = ecx - f.x, fdy = ecy - f.y;
-          const fdist = Math.sqrt(fdx * fdx + fdy * fdy);
-          if (fdist < f.smokeRadius) {
-            exitFirePenalty += 2000 * (1 - fdist / f.smokeRadius);
-          }
-        }
-
-        const score = dist + pathFirePenalty + exitFirePenalty;
+        const score = proximityBonus + pathFirePenalty + exitFirePenalty;
         if (score < bestScore) {
           bestScore = score;
           best = ex;
@@ -1945,26 +1956,42 @@
         const shouldRepath = needsRepath || (isStuck && p.pathTimer <= 0.2);
 
         if (shouldRepath) {
-          // 멈춰있을 때: 모든 출구 시도 (가장 안전한 것부터)
-          if (isStuck) {
-            p.targetExit = findNearestSafeExit(p.x, p.y);
-            p.path = findPath(p.x, p.y, p.targetExit);
+          // ★ 근접 목표 잠금: 현재 목표 출구/계단이 80px 이내이면 목표 변경하지 않음
+          let keepTarget = false;
+          if (p.targetExit && !isInFire(p.targetExit.x * CELL + p.targetExit.w * CELL / 2, p.targetExit.y * CELL + p.targetExit.h * CELL / 2)) {
+            const tecx = p.targetExit.x * CELL + p.targetExit.w * CELL / 2;
+            const tecy = p.targetExit.y * CELL + p.targetExit.h * CELL / 2;
+            const tDist = Math.sqrt((p.x - tecx) ** 2 + (p.y - tecy) ** 2);
+            if (tDist < 80 && p.path.length > 0) {
+              keepTarget = true; // 가까우면 목표 유지
+            }
+          }
 
-            // 첫 번째 출구로 경로 못 찾으면 다른 출구/계단도 시도
-            if (p.path.length === 0) {
-              const allTargets = exits.concat(stairways);
-              for (const ex of allTargets) {
-                if (ex === p.targetExit) continue;
-                const altPath = findPath(p.x, p.y, ex);
-                if (altPath.length > 0) {
-                  p.path = altPath;
-                  p.targetExit = ex;
-                  break;
+          if (!keepTarget) {
+            // 멈춰있을 때: 모든 출구 시도 (가장 안전한 것부터)
+            if (isStuck) {
+              p.targetExit = findNearestSafeExit(p.x, p.y);
+              p.path = findPath(p.x, p.y, p.targetExit);
+
+              // 첫 번째 출구로 경로 못 찾으면 다른 출구/계단도 시도
+              if (p.path.length === 0) {
+                const allTargets = exits.concat(stairways);
+                for (const ex of allTargets) {
+                  if (ex === p.targetExit) continue;
+                  const altPath = findPath(p.x, p.y, ex);
+                  if (altPath.length > 0) {
+                    p.path = altPath;
+                    p.targetExit = ex;
+                    break;
+                  }
                 }
               }
+            } else {
+              p.targetExit = findNearestSafeExit(p.x, p.y);
+              p.path = findPath(p.x, p.y, p.targetExit);
             }
           } else {
-            p.targetExit = findNearestSafeExit(p.x, p.y);
+            // 목표 유지: 경로만 갱신
             p.path = findPath(p.x, p.y, p.targetExit);
           }
           p.pathTimer = 1.0 + Math.random() * 1.5;
@@ -2221,12 +2248,16 @@
         }
 
         // Check if reached exit or stairway (계단 도달 = 다른 층 이동 = 대피 완료)
+        // 출구/계단 영역 내부에 있으면 대피 완료 (영역 전체를 판정 범위로)
         const allEvacTargets = exits.concat(stairways);
         for (const ex of allEvacTargets) {
-          const ecx = ex.x * CELL + ex.w * CELL / 2;
-          const ecy = ex.y * CELL + ex.h * CELL / 2;
-          const dx = p.x - ecx, dy = p.y - ecy;
-          if (Math.sqrt(dx * dx + dy * dy) < CELL * 2) {
+          const exLeft = ex.x * CELL;
+          const exTop = ex.y * CELL;
+          const exRight = (ex.x + ex.w) * CELL;
+          const exBottom = (ex.y + ex.h) * CELL;
+          // 영역 내부 + 주변 1셀 여유
+          if (p.x >= exLeft - CELL && p.x <= exRight + CELL &&
+              p.y >= exTop - CELL && p.y <= exBottom + CELL) {
             p.evacuated = true;
             p.evacuatedTime = elapsedTime;
             evacuatedCount++;
