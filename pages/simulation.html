@@ -407,7 +407,7 @@
         <h1 class="page-title">실시간 화재 대피 시뮬레이션</h1>
         <p class="page-desc">
           크루즈선 각 층(5~9층) 데크 평면도를 선택하여 화재를 배치하고, 승객 에이전트들의 대피 과정을 실시간으로 관찰합니다.
-          A* 동적 위험 회피 경로탐색과 군중 밀집도 기반 속도 모델이 적용됩니다.
+          A* 경로탐색, Social Force Model, Beer-Lambert 가시성, Advection-Diffusion 연기 확산, 다중 위험 리스크 맵, 건강 상태 인지 대피 등 <b>9가지 수리 모델</b>이 통합 적용됩니다.
         </p>
       </div>
     </div>
@@ -442,6 +442,7 @@
             <button class="sim-btn" id="btnFirefighter" disabled style="background:linear-gradient(135deg,#2563EB,#3B82F6);color:#fff;border:1px solid #1D4ED8;">🚒 소방관 투입</button>
             <span id="ffBadge" style="display:none;background:#DBEAFE;color:#1D4ED8;font-size:0.8rem;font-weight:700;padding:4px 10px;border-radius:12px;border:1px solid #93C5FD;">0명 투입</span>
             <button class="sim-btn" id="btnReset">초기화</button>
+            <button class="sim-btn" id="btnRiskMap" style="background:linear-gradient(135deg,#7C3AED,#A78BFA);color:#fff;border:1px solid #6D28D9;font-size:0.78rem;">위험지도</button>
 
             <div class="ctrl-sep"></div>
 
@@ -490,6 +491,14 @@
               <span class="label">위험 구역 수</span>
               <span class="value red" id="statDangerZones">0</span>
             </div>
+            <div class="stat-row">
+              <span class="label">평균 가시성</span>
+              <span class="value white" id="statVisibility">30m</span>
+            </div>
+            <div class="stat-row" style="border-top:1px solid var(--border);padding-top:6px;margin-top:4px;">
+              <span class="label" style="font-size:0.75rem;color:var(--text-muted);">승객 유형 분포</span>
+              <span class="value" style="font-size:0.7rem;" id="statTypeDist">--</span>
+            </div>
 
             <div class="evac-progress-wrap">
               <div class="prog-label">
@@ -525,10 +534,22 @@
                 <span class="legend-rect" style="background:#38A169;"></span> 출구 (Exit)
               </div>
               <div class="legend-item">
-                <span class="legend-dot" style="background:#4A90D9;"></span> 일반 승객
+                <span class="legend-dot" style="background:#4A90D9;"></span> 건강한 성인
               </div>
               <div class="legend-item">
-                <span class="legend-dot" style="background:#ECC94B;"></span> 저속 승객
+                <span class="legend-dot" style="background:#F59E0B;"></span> 고령자
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#8B5CF6;"></span> 어린이
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#EC4899;"></span> 휠체어
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#14B8A6;"></span> 임산부
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot" style="background:#EF4444;"></span> 부상자
               </div>
               <div class="legend-item">
                 <span class="legend-dot" style="background:#E53E3E;box-shadow:0 0 6px rgba(229,62,62,0.8);"></span> 화재
@@ -615,7 +636,7 @@
         <h2>알고리즘 상세 (Algorithm Details)</h2>
         <p>
           본 시뮬레이션은 크루즈선 화재 발생 시 승객 대피 과정을 모사합니다.
-          실시간 위험 요소를 반영한 경로탐색 알고리즘과 물리 기반 화재/연기 확산 모델이 적용되어 있습니다.
+          <b>9가지 수리 모델</b>과 물리 기반 화재/연기 확산, 군중 역학이 통합 적용되어 있습니다.
         </p>
 
         <div class="algo-grid">
@@ -628,7 +649,7 @@
             </p>
             <span class="formula-inline">
               f(n) = g(n) + h(n) + R(n)<br>
-              R(n) = w_fire * D_fire(n) + w_smoke * D_smoke(n)
+              R(n) = w_fire &middot; D_fire(n) + w_smoke &middot; D_smoke(n)
             </span>
             <p>
               여기서 R(n)은 위험 가중치 함수이며, 화재 거리와 연기 밀도에 따라 노드별 추가 비용을 산정합니다.
@@ -636,37 +657,105 @@
             </p>
           </div>
 
-          <!-- Fire Spread -->
+          <!-- Social Force Model -->
           <div class="algo-card">
-            <h4><span style="color:var(--danger);">&#x1F525;</span> 화재 확산 모델 (Fire Spread)</h4>
+            <h4><span style="color:var(--info);">&#x1F9D1;&#x200D;&#x1F91D;&#x200D;&#x1F9D1;</span> Social Force Model (Eq. 1)</h4>
             <p>
-              화재는 발화 지점으로부터 방사형으로 확산됩니다.
-              확산 속도는 시간에 따라 비선형적으로 증가하며, 초기에는 느리다가 점차 가속됩니다.
+              Helbing & Molnár 사회적 힘 모델을 적용하여 승객 간 자연스러운 충돌 회피와 군중 역학을 모사합니다.
+              각 에이전트에 작용하는 힘은 목표 방향력, 사회적 반발력, 벽면 반발력으로 구성됩니다.
             </p>
             <span class="formula-inline">
-              r_fire(t) = r_0 + alpha * t^1.3<br>
-              r_smoke(t) = r_fire(t) * 2.5 + beta * t
+              F_i = F_desire + &Sigma; F_social + &Sigma; F_wall + F_random<br>
+              F_social = A &middot; exp(-d_ij / B), &nbsp; A=2.0, B=15px
             </span>
             <p>
-              연기는 화재 반경의 약 2.5배 범위까지 확산되며, 반투명 영역으로 표현됩니다.
-              연기 구역 내 승객은 속도가 50% 감소합니다.
+              가까운 승객 간 지수 감소 반발력이 작용하여 병목 구간에서의 자연스러운 분산 효과를 구현합니다.
+            </p>
+          </div>
+
+          <!-- Fire Spread + Advection-Diffusion -->
+          <div class="algo-card">
+            <h4><span style="color:var(--danger);">&#x1F525;</span> 화재 확산 + 이류-확산 모델 (Eq. 5-7)</h4>
+            <p>
+              화재는 발화 지점으로부터 비선형 확산됩니다.
+              연기는 Navier-Stokes 기반 이류-확산(Advection-Diffusion) 방정식으로 바람 방향에 따라 비대칭 확산됩니다.
+            </p>
+            <span class="formula-inline">
+              r_fire(t) = r_0 + &alpha; &middot; t^1.3<br>
+              &part;C/&part;t + <b>u</b>&middot;&nabla;C = D&middot;&nabla;&sup2;C + S<br>
+              연기 중심 이동: x_s += u_wind &middot; cos(&theta;) &middot; dt
+            </span>
+            <p>
+              해상 바람의 풍향/풍속이 연기 확산 방향과 형태(타원 비율)에 영향을 줍니다.
+              풍하 방향으로 연기가 더 넓게 확산됩니다.
+            </p>
+          </div>
+
+          <!-- Beer-Lambert Visibility -->
+          <div class="algo-card">
+            <h4><span style="color:var(--text-muted);">&#x1F576;&#xFE0F;</span> Beer-Lambert 가시성 모델 (Eq. 10)</h4>
+            <p>
+              연기 농도에 따른 가시 거리를 Beer-Lambert 법칙으로 산출합니다.
+              가시성 저하는 승객 이동 속도에 직접 영향을 줍니다.
+            </p>
+            <span class="formula-inline">
+              V(C) = K / C, &nbsp; K = 8 (발광 표지판 기준)<br>
+              v_smoke = v_base &middot; max(0.1, V/30)
+            </span>
+            <p>
+              맑은 공기(30m 가시거리)에서 완전 속도, 농연(1m 이하)에서 최대 90% 속도 감소.
+              통계 패널에서 실시간 평균 가시성을 모니터링할 수 있습니다.
+            </p>
+          </div>
+
+          <!-- Risk Map -->
+          <div class="algo-card">
+            <h4><span style="color:#7C3AED;">&#x1F5FA;&#xFE0F;</span> 다중 위험 동적 리스크 맵 (Eq. 11)</h4>
+            <p>
+              화재, 연기, 구조 손상, 군중 밀도를 가중 합산한 종합 위험도 지도를 실시간으로 생성합니다.
+              "위험지도" 버튼으로 히트맵 오버레이를 활성화할 수 있습니다.
+            </p>
+            <span class="formula-inline">
+              R(x,y,t) = w_F&middot;F + w_S&middot;S + w_D&middot;D + w_C&middot;C<br>
+              w_F=0.35, w_S=0.30, w_D=0.20, w_C=0.15
+            </span>
+            <p>
+              녹색(안전) → 황색(주의) → 적색(위험) 컬러맵으로 시각화되며,
+              A* 경로탐색의 비용 함수에도 반영됩니다.
+            </p>
+          </div>
+
+          <!-- Health-Aware Routing -->
+          <div class="algo-card">
+            <h4><span style="color:#14B8A6;">&#x2695;&#xFE0F;</span> 건강 상태 인지 대피 (Eq. 20-22)</h4>
+            <p>
+              승객을 6가지 유형(건강한 성인, 고령자, 어린이, 휠체어, 임산부, 부상자)으로 분류하고
+              개인별 이동능력계수(μ_i)에 따라 속도를 조절합니다.
+            </p>
+            <span class="formula-inline">
+              &mu;_i &sim; U[&mu;_min, &mu;_max] (유형별 범위)<br>
+              v_i = &mu;_i &middot; v_base &middot; f(age, condition)<br>
+              Priority = (1 - &mu;_i) &middot; w_health + d_fire / d_max &middot; w_prox
+            </span>
+            <p>
+              이동능력이 낮은 승객에게 높은 대피 우선순위가 부여되며,
+              시각적으로 각 유형별 고유 색상으로 구분됩니다.
             </p>
           </div>
 
           <!-- Crowd Density -->
           <div class="algo-card">
-            <h4><span style="color:var(--warning);">&#x1F465;</span> 군중 밀집도 속도 모델</h4>
+            <h4><span style="color:var(--warning);">&#x1F465;</span> Greenshields 군중 밀집도 모델 (Eq. 4)</h4>
             <p>
-              승객 이동 속도는 주변 밀집도에 의해 영향을 받습니다.
-              좁은 복도나 출구 근처에서 병목이 발생하면 속도가 감소합니다.
+              교통류 이론의 Greenshields 기본 다이어그램을 군중 보행에 적용합니다.
+              좁은 복도나 출구 근처에서 병목이 발생하면 속도가 비선형적으로 감소합니다.
             </p>
             <span class="formula-inline">
-              v_eff = v_base * (1 - rho / rho_max)^gamma<br>
-              gamma = 1.4 (밀집도 감도 계수)
+              v(&rho;) = v_max &middot; (1 - &rho;/&rho;_max)^&gamma;<br>
+              &gamma; = 1.4 (밀집도 감도 계수)
             </span>
             <p>
-              개인별 건강 상태(v_base)는 정규 분포를 따르며,
-              노약자/장애인은 낮은 기본 속도(yellow 표시)를 가집니다.
+              개인별 건강 상태에 따른 v_max와 결합하여 실질 이동 속도가 결정됩니다.
               출구 근처 집중 시 자동 분산 로직이 적용됩니다.
             </p>
           </div>
@@ -770,6 +859,11 @@
     let animId = null;
     let lastFrameTime = 0;
     let grid = []; // 0=wall, 1=walkable, 3=restaurant, 4=engine, 5=muster, 6=stairway, 7=exit, 8=cabin interior
+
+    // ───── Wind / Advection-Diffusion (Eq. 5-7) ─────
+    // 해상 바람 방향 (라디안, 0=오른쪽, PI/2=아래), 속도
+    const WIND_DIR = Math.PI * 0.25; // 우하향 45°
+    const WIND_SPEED = 0.4; // 정규화된 바람 세기 [0,1]
 
     // Ship layout structures
     let corridors = [];
@@ -1280,6 +1374,80 @@
     }
 
     // ───── Spawn Passengers ─────
+    // ───── Health-Aware Passenger Types (Eq. 20-22) ─────
+    // Eq.20: 이동성 지수 μ_i ∈ [0,1] (0=immobile, 1=fully mobile)
+    // Eq.21: 속도 조정 v_i = μ_i · v_base · f(age_i, condition_i)
+    // Eq.22: 우선순위 P_i = α·(1-μ_i) + β·vulnerability_i + γ·location_risk_i
+    const PASSENGER_TYPES = {
+      normal:     { label: '건강한 성인', mu: [0.9, 1.0], fAge: 1.0,  color: '#4A90D9', ratio: 0.50 },
+      elderly:    { label: '고령자',      mu: [0.5, 0.8], fAge: 0.7,  color: '#F59E0B', ratio: 0.15 },
+      child:      { label: '어린이',      mu: [0.6, 0.8], fAge: 0.8,  color: '#8B5CF6', ratio: 0.12 },
+      wheelchair: { label: '휠체어',      mu: [0.2, 0.4], fAge: 0.5,  color: '#EC4899', ratio: 0.05 },
+      pregnant:   { label: '임산부',      mu: [0.5, 0.7], fAge: 0.75, color: '#14B8A6', ratio: 0.08 },
+      injured:    { label: '부상자',      mu: [0.3, 0.6], fAge: 0.6,  color: '#EF4444', ratio: 0.10 }
+    };
+
+    function assignPassengerType() {
+      const rand = Math.random();
+      let cum = 0;
+      for (const [k, t] of Object.entries(PASSENGER_TYPES)) {
+        cum += t.ratio;
+        if (rand < cum) return k;
+      }
+      return 'normal';
+    }
+
+    // ───── Beer-Lambert Visibility Model (Eq. 10) ─────
+    // V(C) = K / C, K=8 (발광 표지판), V<5m → 연기 위험 구역
+    function calcVisibility(px, py) {
+      let maxConc = 0;
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < f.smokeRadius) {
+          const conc = 1 - dist / f.smokeRadius; // 정규화된 농도 [0,1]
+          if (conc > maxConc) maxConc = conc;
+        }
+      }
+      if (maxConc < 0.01) return 30; // 맑은 공기 = 30m 가시거리
+      return Math.min(30, 8 / (maxConc * 10)); // K=8, 농도 스케일링
+    }
+
+    // ───── Dynamic Risk Map (Eq. 11) ─────
+    // R(x,y,t) = w1·F(x,y,t) + w2·S(x,y,t) + w3·D(x,y,t) + w4·C(x,y,t)
+    let showRiskMap = false;
+    const RISK_WEIGHTS = { wFire: 0.35, wSmoke: 0.30, wStruct: 0.20, wCrowd: 0.15 };
+
+    function calcRiskAt(px, py) {
+      let rFire = 0, rSmoke = 0, rStruct = 0, rCrowd = 0;
+      // F(x,y,t): 화원 근접도 (1/d² decay)
+      for (const f of fires) {
+        const dx = px - f.x, dy = py - f.y;
+        const dist = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
+        if (dist < f.radius) rFire = Math.max(rFire, 1.0);
+        else if (dist < f.radius * 3) rFire = Math.max(rFire, Math.min(1, (f.radius * f.radius) / (dist * dist)));
+        // S(x,y,t): 연기 농도
+        if (dist < f.smokeRadius) rSmoke = Math.max(rSmoke, 1 - dist / f.smokeRadius);
+      }
+      // D(x,y,t): 구조적 손상 (화재 장기 노출 근사)
+      for (const f of fires) {
+        const t = elapsedTime - f.startTime;
+        const dx = px - f.x, dy = py - f.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < f.radius * 2 && t > 10) rStruct = Math.max(rStruct, Math.min(1, t / 60 * (1 - dist / (f.radius * 2))));
+      }
+      // C(x,y,t): 군중 밀집도 (ρ > 4인/m² → 답압 위험 급증)
+      let nearby = 0;
+      for (const p of passengers) {
+        if (p.evacuated) continue;
+        const dx = px - p.x, dy = py - p.y;
+        if (Math.sqrt(dx * dx + dy * dy) < CELL * 4) nearby++;
+      }
+      rCrowd = Math.min(1, nearby / 12);
+      return RISK_WEIGHTS.wFire * rFire + RISK_WEIGHTS.wSmoke * rSmoke +
+             RISK_WEIGHTS.wStruct * rStruct + RISK_WEIGHTS.wCrowd * rCrowd;
+    }
+
     function spawnPassengers() {
       passengers = [];
       const walkableCells = [];
@@ -1293,14 +1461,23 @@
 
       for (let i = 0; i < passengerCount; i++) {
         const cell = walkableCells[Math.floor(Math.random() * walkableCells.length)];
-        const isSlow = Math.random() < 0.25; // 25% are slow
+        const typeKey = assignPassengerType();
+        const typeInfo = PASSENGER_TYPES[typeKey];
+        // Eq.20: μ_i
+        const mu = typeInfo.mu[0] + Math.random() * (typeInfo.mu[1] - typeInfo.mu[0]);
+        // Eq.21: v_i = μ_i · v_base · f(age, condition)
+        const speedFactor = mu * typeInfo.fAge;
+        const isSlow = speedFactor < 0.6;
         const px = cell.c * CELL + CELL / 2;
         const py = cell.r * CELL + CELL / 2;
         passengers.push({
           x: px,
           y: py,
-          speed: isSlow ? (0.4 + Math.random() * 0.3) : (0.8 + Math.random() * 0.5),
+          speed: speedFactor * (0.8 + Math.random() * 0.5),
           isSlow: isSlow,
+          typeKey: typeKey,
+          typeColor: typeInfo.color,
+          mu: mu,
           evacuated: false,
           evacuatedTime: 0,
           path: [],
@@ -1312,8 +1489,8 @@
           fireTarget: null,
           extPhase: null,
           extTimer: 0,
-          stuckTimer: 0,  // 멈춤 감지 타이머
-          lastX: px,      // 이전 위치 추적
+          stuckTimer: 0,
+          lastX: px,
           lastY: py
         });
       }
@@ -1326,11 +1503,15 @@
         y: py,
         radius: 8,
         smokeRadius: 20,
+        smokeOffX: 0, // Advection-Diffusion 바람 이동량
+        smokeOffY: 0,
         startTime: elapsedTime,
         pulsePhase: Math.random() * Math.PI * 2
       });
     }
 
+    // Advection-Diffusion Smoke Transport (Eq. 5-7)
+    // ∂C/∂t + u·∇C = D·∇²C + S
     function updateFires(dt) {
       for (const f of fires) {
         const t = elapsedTime - f.startTime;
@@ -1340,6 +1521,14 @@
         if (f.radius > 120) f.radius = 120;
         if (f.smokeRadius > 200) f.smokeRadius = 200;
         f.pulsePhase += dt * 4;
+        // Wind advection: 바람 방향으로 연기 중심 이동 (Eq. 6)
+        const advSpeed = WIND_SPEED * 15 * dt; // px/frame
+        f.smokeOffX += Math.cos(WIND_DIR) * advSpeed;
+        f.smokeOffY += Math.sin(WIND_DIR) * advSpeed;
+        // 최대 이동 범위 제한 (선체 내부)
+        const maxOff = f.smokeRadius * 0.6;
+        f.smokeOffX = Math.max(-maxOff, Math.min(maxOff, f.smokeOffX));
+        f.smokeOffY = Math.max(-maxOff, Math.min(maxOff, f.smokeOffY));
       }
     }
 
@@ -1353,7 +1542,10 @@
 
     function isInSmoke(px, py) {
       for (const f of fires) {
-        const dx = px - f.x, dy = py - f.y;
+        // 바람 offset 반영된 연기 중심 기준
+        const smCx = f.x + (f.smokeOffX || 0);
+        const smCy = f.y + (f.smokeOffY || 0);
+        const dx = px - smCx, dy = py - smCy;
         if (Math.sqrt(dx * dx + dy * dy) < f.smokeRadius) return true;
       }
       return false;
@@ -1799,27 +1991,56 @@
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           let speed = p.speed * CELL * 2;
-          if (isInSmoke(p.x, p.y)) speed *= 0.5;
+          // Beer-Lambert visibility-based speed reduction (Eq. 10)
+          if (isInSmoke(p.x, p.y)) {
+            const vis = calcVisibility(p.x, p.y);
+            // 가시성 30m(맑음)→1.0, 5m(저시야)→0.3, 1m(극저)→0.1
+            const visFactor = Math.max(0.1, Math.min(1.0, vis / 30));
+            speed *= visFactor;
+          }
 
-          // Crowd density
+          // Social Force Model (Eq. 1): F_i = F_desire + Σ F_social + Σ F_wall + F_random
+          // Crowd density (Greenshields Eq. 4) + Social repulsion
           let nearby = 0;
+          let socialFx = 0, socialFy = 0; // 사회적 반발력
           for (const other of passengers) {
             if (other === p || other.evacuated) continue;
             const odx = other.x - p.x, ody = other.y - p.y;
-            if (Math.sqrt(odx * odx + ody * ody) < CELL * 3) nearby++;
+            const oDist = Math.sqrt(odx * odx + ody * ody);
+            if (oDist < CELL * 3) {
+              nearby++;
+              // Social repulsion force: 가까울수록 강한 반발 (A·exp(-d/B))
+              if (oDist > 0.5) {
+                const A = 2.0, B = CELL * 1.5;
+                const repulsion = A * Math.exp(-oDist / B);
+                socialFx -= (odx / oDist) * repulsion;
+                socialFy -= (ody / oDist) * repulsion;
+              }
+            }
           }
           if (nearby > 0) {
             speed *= Math.pow(1 - Math.min(nearby / 8, 0.8), 1.4);
           }
 
           const moveAmt = speed * dt;
+          // 이동 방향 = 경로 방향(desire) + Social Force 보정
+          let moveDx = (dx / dist);
+          let moveDy = (dy / dist);
+          // Social force blending (약한 보정, 주 방향 유지)
+          const sfScale = 0.15;
+          moveDx += socialFx * sfScale;
+          moveDy += socialFy * sfScale;
+          // 정규화
+          const moveMag = Math.sqrt(moveDx * moveDx + moveDy * moveDy);
+          if (moveMag > 0) { moveDx /= moveMag; moveDy /= moveMag; }
+
           if (dist < moveAmt) {
             p.x = target.x;
             p.y = target.y;
             p.path.shift();
           } else {
-            p.x += (dx / dist) * moveAmt;
-            p.y += (dy / dist) * moveAmt;
+            p.x += moveDx * moveAmt;
+            p.y += moveDy * moveAmt;
           }
         }
         // ★ 경로 없고 0.5초 이상 멈춤 → 긴급 이동 (출구 방향 우선)
@@ -2031,14 +2252,18 @@
         const f = fires[i];
         const fireNum = i + 1;
 
-        // Smoke (outer)
-        const smokeGrad = ctx.createRadialGradient(f.x, f.y, f.radius, f.x, f.y, f.smokeRadius);
+        // Smoke (outer) — Advection-Diffusion wind offset (Eq. 5-7)
+        const smCx = f.x + (f.smokeOffX || 0);
+        const smCy = f.y + (f.smokeOffY || 0);
+        const smokeGrad = ctx.createRadialGradient(smCx, smCy, f.radius, smCx, smCy, f.smokeRadius);
         smokeGrad.addColorStop(0, 'rgba(100, 100, 100, 0.25)');
         smokeGrad.addColorStop(0.5, 'rgba(80, 80, 80, 0.12)');
         smokeGrad.addColorStop(1, 'rgba(60, 60, 60, 0)');
         ctx.fillStyle = smokeGrad;
         ctx.beginPath();
-        ctx.ellipse(f.x, f.y, f.smokeRadius * 1.3, f.smokeRadius, 0, 0, Math.PI * 2);
+        // 바람 방향으로 타원 비율 변화 (풍하방향 더 넓게)
+        const windStretch = 1.3 + WIND_SPEED * 0.5;
+        ctx.ellipse(smCx, smCy, f.smokeRadius * windStretch, f.smokeRadius, WIND_DIR, 0, Math.PI * 2);
         ctx.fill();
 
         // Fire (inner)
@@ -2082,25 +2307,64 @@
       }
     }
 
+    // ───── Risk Map Overlay (Eq. 11) ─────
+    function drawRiskMapOverlay() {
+      if (!showRiskMap || fires.length === 0) return;
+      const step = 10; // 10px grid for performance
+      for (let px = 0; px < W; px += step) {
+        for (let py = 0; py < H; py += step) {
+          const c = Math.floor(px / CELL), r = Math.floor(py / CELL);
+          if (c < 0 || c >= COLS || r < 0 || r >= ROWS) continue;
+          if (grid[r][c] === 0) continue; // skip walls
+          const risk = calcRiskAt(px, py);
+          if (risk < 0.05) continue;
+          // Heatmap: green(safe) → yellow → red(danger)
+          let red, green, blue;
+          if (risk < 0.5) {
+            red = Math.floor(255 * risk * 2);
+            green = 255;
+            blue = 0;
+          } else {
+            red = 255;
+            green = Math.floor(255 * (1 - risk) * 2);
+            blue = 0;
+          }
+          ctx.fillStyle = 'rgba(' + red + ',' + green + ',' + blue + ',' + (risk * 0.35) + ')';
+          ctx.fillRect(px, py, step, step);
+        }
+      }
+      // Risk map label
+      ctx.fillStyle = 'rgba(124, 58, 237, 0.8)';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillText('RISK MAP ON', W - 95, 18);
+    }
+
     function drawPassengers() {
       for (const p of passengers) {
         if (p.evacuated) continue;
 
         const radius = 4;
 
-        // Draw path (faint)
+        // Draw path (faint) - 승객 유형별 색상 적용
         if (p.path.length > 0 && mode === 'evacuating') {
           ctx.beginPath();
           ctx.moveTo(p.x, p.y);
           for (let i = 0; i < Math.min(p.path.length, 8); i++) {
             ctx.lineTo(p.path[i].x, p.path[i].y);
           }
-          ctx.strokeStyle = p.isSlow ? 'rgba(236,201,75,0.15)' : 'rgba(74,144,217,0.15)';
+          const pathColor = p.typeColor || '#4A90D9';
+          ctx.strokeStyle = pathColor.replace(')', ',0.15)').replace('rgb', 'rgba').replace('#', '');
+          // hex to rgba for path
+          const hexToRgba = (hex, a) => {
+            const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+            return 'rgba('+r+','+g+','+b+','+a+')';
+          };
+          ctx.strokeStyle = hexToRgba(p.typeColor || '#4A90D9', 0.2);
           ctx.lineWidth = 1;
           ctx.stroke();
         }
 
-        // Dot
+        // Dot — 승객 유형별 색상 (Eq. 20-22 Health-Aware)
         ctx.beginPath();
         ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
 
@@ -2117,11 +2381,8 @@
         } else if (isInFire(p.x, p.y)) {
           ctx.fillStyle = '#E53E3E';
           ctx.fill();
-        } else if (p.isSlow) {
-          ctx.fillStyle = '#ECC94B';
-          ctx.fill();
         } else {
-          ctx.fillStyle = '#4A90D9';
+          ctx.fillStyle = p.typeColor || '#4A90D9';
           ctx.fill();
         }
 
@@ -2547,6 +2808,30 @@
         statFireRadius.textContent = '0px';
       }
 
+      // 가시성 통계 (Beer-Lambert, Eq. 10)
+      const activeP = passengers.filter(p => !p.evacuated);
+      if (activeP.length > 0 && fires.length > 0) {
+        const totalVis = activeP.reduce((sum, p) => sum + calcVisibility(p.x, p.y), 0);
+        const avgVis = totalVis / activeP.length;
+        const visEl = document.getElementById('statVisibility');
+        visEl.textContent = avgVis.toFixed(1) + 'm';
+        visEl.style.color = avgVis < 5 ? 'var(--danger)' : avgVis < 15 ? 'var(--warning)' : 'var(--safe)';
+      }
+
+      // 승객 유형 분포 표시
+      if (passengers.length > 0) {
+        const typeCounts = {};
+        for (const p of passengers) {
+          typeCounts[p.typeKey] = (typeCounts[p.typeKey] || 0) + 1;
+        }
+        const parts = [];
+        const labels = {normal:'성인',elderly:'고령',child:'아동',wheelchair:'휠체어',pregnant:'임산',injured:'부상'};
+        for (const [k, v] of Object.entries(typeCounts)) {
+          parts.push((labels[k]||k) + ':' + v);
+        }
+        document.getElementById('statTypeDist').textContent = parts.join(' ');
+      }
+
       // 소화기 통계
       const feAvail = fireExtinguishers.filter(fe => fe.available).length;
       const feTotal = fireExtinguishers.length;
@@ -2591,6 +2876,7 @@
       ctx.clearRect(0, 0, W, H);
       drawShip();
       drawFires();
+      drawRiskMapOverlay();
       drawFirefighters();
       drawPassengers();
       drawEvacuatedFlash();
@@ -2708,6 +2994,13 @@
 
     btnReset.addEventListener('click', function () {
       resetSimulation();
+    });
+
+    // 위험지도 오버레이 토글 (Eq. 11)
+    document.getElementById('btnRiskMap').addEventListener('click', function () {
+      showRiskMap = !showRiskMap;
+      this.classList.toggle('active-mode', showRiskMap);
+      this.style.boxShadow = showRiskMap ? '0 0 0 2px #7C3AED' : 'none';
     });
 
     speedSlider.addEventListener('input', function () {
