@@ -925,6 +925,12 @@
         default: buildDeck5();
       }
 
+      // ★ 복도 재적용: 방이 복도 위에 겹쳐 그려지는 것 방지
+      // 복도를 마지막에 다시 찍어서 항상 복도가 우선
+      for (const cor of corridors) {
+        fillGrid(cor.x, cor.y, cor.w, cor.h, 1);
+      }
+
       // ★ 모든 객실/방이 복도를 통해 출구/계단에 연결되어 있는지 검증 및 자동 수정
       ensureConnectivity();
 
@@ -1108,9 +1114,9 @@
       addRestaurant(44, 17, 16, 12);
       // Engine Room
       addEngineRoom(20, 41, 50, 6);
-      // Muster Stations
-      addMusterStation(6, 5, 6, 8);
-      addMusterStation(78, 5, 8, 8);
+      // Muster Stations (복도와 겹치지 않게 배치)
+      addMusterStation(2, 5, 5, 4);
+      addMusterStation(83, 5, 5, 4);
       // Stairways
       addStairway(15, 12, 3, 3);
       addStairway(45, 12, 3, 3);
@@ -1178,8 +1184,9 @@
         if (x > 15 && x < 72) addCabin(x, 41, 5, 3, 40);
       }
 
-      // Fitness Center (좌측 하단)
-      addEngineRoom(6, 34, 12, 10); // 피트니스 (엔진룸 렌더링 재활용)
+      // Fitness Center (좌측 하단) - 복도 y=38 기준 상하 분리
+      addEngineRoom(6, 34, 12, 4);  // 피트니스 상부 (y=34..37)
+      addEngineRoom(6, 40, 12, 4);  // 피트니스 하부 (y=40..43)
 
       // Stairways
       addStairway(18, 13, 3, 3);
@@ -1187,9 +1194,9 @@
       addStairway(75, 13, 3, 3);
       addStairway(35, 29, 3, 3);
       addStairway(62, 29, 3, 3);
-      // Muster Station
-      addMusterStation(6, 6, 5, 6);
-      addMusterStation(80, 6, 6, 6);
+      // Muster Station (복도와 겹치지 않게 배치)
+      addMusterStation(2, 6, 5, 5);
+      addMusterStation(83, 6, 5, 5);
       // Exits
       addExit(6, 12, 2, 2); addCorridor(6, 12, 2, 2);
       addExit(85, 12, 2, 2); addCorridor(85, 12, 2, 2);
@@ -1252,9 +1259,9 @@
       addStairway(70, 16, 3, 3);
       addStairway(28, 35, 3, 3);
       addStairway(60, 35, 3, 3);
-      // Muster
-      addMusterStation(6, 10, 4, 4);
-      addMusterStation(82, 10, 4, 4);
+      // Muster (복도와 겹치지 않게 배치)
+      addMusterStation(2, 9, 5, 4);
+      addMusterStation(83, 9, 4, 4);
       // Exits
       addExit(6, 14, 2, 2); addCorridor(6, 14, 2, 2);
       addExit(85, 14, 2, 2); addCorridor(85, 14, 2, 2);
@@ -1314,9 +1321,9 @@
       addStairway(65, 11, 3, 3);
       addStairway(25, 29, 3, 3);
       addStairway(55, 29, 3, 3);
-      // Muster
-      addMusterStation(6, 4, 5, 6);
-      addMusterStation(82, 4, 5, 6);
+      // Muster (복도와 겹치지 않게 배치)
+      addMusterStation(2, 4, 5, 5);
+      addMusterStation(83, 4, 5, 5);
       // Exits
       addExit(6, 10, 2, 2); addCorridor(6, 10, 2, 2);
       addExit(85, 10, 2, 2); addCorridor(85, 10, 2, 2);
@@ -1370,9 +1377,9 @@
       addStairway(75, 17, 3, 3);
       addStairway(30, 35, 3, 3);
       addStairway(60, 35, 3, 3);
-      // Muster
-      addMusterStation(6, 12, 4, 4);
-      addMusterStation(82, 12, 4, 4);
+      // Muster (복도와 겹치지 않게 배치)
+      addMusterStation(2, 11, 5, 4);
+      addMusterStation(83, 11, 5, 4);
       // Exits
       addExit(6, 16, 2, 2); addCorridor(6, 16, 2, 2);
       addExit(85, 16, 2, 2); addCorridor(85, 16, 2, 2);
@@ -1447,11 +1454,46 @@
     function addEngineRoom(gx, gy, gw, gh) {
       engineRooms.push({ x: gx, y: gy, w: gw, h: gh });
       fillGrid(gx, gy, gw, gh, 4);
+      // 출입문 추가: 4방향 중앙에 door (복도 연결용)
+      const doorPositions = [
+        { x: gx + Math.floor(gw / 2), y: gy - 1 },         // 상단
+        { x: gx + Math.floor(gw / 2), y: gy + gh },         // 하단
+        { x: gx - 1, y: gy + Math.floor(gh / 2) },           // 좌측
+        { x: gx + gw, y: gy + Math.floor(gh / 2) },          // 우측
+      ];
+      for (const dp of doorPositions) {
+        if (dp.y >= 0 && dp.y < ROWS && dp.x >= 0 && dp.x < COLS) {
+          // 문 위치가 복도(1)이거나 빈 벽(0)이면 출입구 설정
+          if (grid[dp.y][dp.x] === 1 || grid[dp.y][dp.x] === 0) {
+            grid[dp.y][dp.x] = 1;
+            doorways.push({ x: dp.x, y: dp.y, type: 'engine' });
+          }
+        }
+      }
+      // 내부 중심부를 walkable로 (사람이 통과 가능)
+      if (gw >= 4 && gh >= 4) {
+        fillGrid(gx + 1, gy + 1, gw - 2, gh - 2, 1);
+      }
     }
 
     function addMusterStation(gx, gy, gw, gh) {
       musterStations.push({ x: gx, y: gy, w: gw, h: gh });
       fillGrid(gx, gy, gw, gh, 5);
+      // 출입문 추가: 4방향 중앙에 door
+      const doorPositions = [
+        { x: gx + Math.floor(gw / 2), y: gy - 1 },
+        { x: gx + Math.floor(gw / 2), y: gy + gh },
+        { x: gx - 1, y: gy + Math.floor(gh / 2) },
+        { x: gx + gw, y: gy + Math.floor(gh / 2) },
+      ];
+      for (const dp of doorPositions) {
+        if (dp.y >= 0 && dp.y < ROWS && dp.x >= 0 && dp.x < COLS) {
+          if (grid[dp.y][dp.x] === 1 || grid[dp.y][dp.x] === 0) {
+            grid[dp.y][dp.x] = 1;
+            doorways.push({ x: dp.x, y: dp.y, type: 'muster' });
+          }
+        }
+      }
     }
 
     function addStairway(gx, gy, gw, gh) {
